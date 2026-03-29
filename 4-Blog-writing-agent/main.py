@@ -73,3 +73,66 @@ class EvidencePack(BaseModel):
 
 
 # --------------------------------------------state of graph----------------------------------
+class BlogState(TypedDict):
+   topic : str
+   mode : str
+   needs_research: bool
+   queries: List[str]
+   evidence : List[EvidenceItem]
+   plan : Plan
+
+   sections : Annotated[List[tuple[str, int]], operator.add]  #[ (1, "Introduction"),(2, "How AI Works"),]
+   final : str
+
+
+
+# ----------------------------------------------functions--------------------------------------
+
+def rounter_node(state : BlogState) :
+    pass
+
+def research_node(state : BlogState):
+    pass
+
+def orchestrator_node(state : BlogState):
+    pass
+
+def worker_node(state : BlogState):
+    pass
+
+def reducer_node(state : BlogState):
+    pass
+
+def next_route(state : BlogState):
+    pass
+
+def fanout(state : BlogState):
+    pass
+
+
+
+
+
+
+
+#-----------------------------------------------graph -----------------------------------------
+
+graph = StateGraph(BlogState)
+
+# -----------------------------nodes--------------------------
+graph.add_node('router', rounter_node)
+graph.add_node('research', research_node)
+graph.add_node('orchestrator', orchestrator_node)
+graph.add_node('worker', worker_node)
+graph.add_node('reducer', reducer_node)
+
+# -----------------------------edges--------------------------
+graph.add_edge(START, 'router')
+graph.add_conditional_edges('rounter', next_route,  {"research": "research", "orchestrator": "orchestrator"})
+graph.add_edge('research', 'orchestrator')
+graph.add_conditional_edges('orchestrator', fanout, ['worker'])
+graph.add_edge('worker', 'reducer')
+graph.add_edge('reducer', END)
+
+workflow = graph.compile()
+
