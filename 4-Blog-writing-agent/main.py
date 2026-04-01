@@ -21,6 +21,7 @@ load_dotenv()
 #     temperature=0
 # )
 
+
 llm = ChatGroq(
     model="llama-3.3-70b-versatile",
     temperature=0
