@@ -1,6 +1,7 @@
 from langgraph.graph import StateGraph, START, END
 from typing import TypedDict, List, Annotated, Literal, Optional
 from pydantic import BaseModel, Field
+from langchain_openai import ChatOpenAI
 from langchain_groq import ChatGroq
 from langchain_tavily import TavilySearch
 from langgraph.types import Send
@@ -9,11 +10,17 @@ import operator,os
 from pathlib import Path
 from datetime import date, timedelta
 from dotenv import load_dotenv
+import sys
 load_dotenv()
 
 
 
 # --------------------------------------------llm--------------------------------------------
+# llm = ChatOpenAI(
+#     model="gpt-4.1-mini",
+#     temperature=0
+# )
+
 llm = ChatGroq(
     model="llama-3.3-70b-versatile",
     temperature=0
@@ -129,6 +136,7 @@ If needs_research=true:
 - Queries should be scoped and specific (avoid generic queries like just "AI" or "LLM").
 - If user asked for "last week/this week/latest", reflect that constraint IN THE QUERIES.
 """
+
 
 def router_node(state : BlogState) -> dict:
     
@@ -472,10 +480,13 @@ def generate_and_place_images(state: BlogState) -> dict:
 
     md = state.get("md_with_placeholders") or state["merged_md"]
     image_specs = state.get("image_specs", []) or []
+    
+    import re
+    safe_title = re.sub(r'[<>:"/\\|?*]', '', plan.blog_title)
 
     # If no images requested, just write merged markdown
     if not image_specs:
-        filename = f"{plan.blog_title}.md"
+        filename = f"{safe_title}.md"
         Path(filename).write_text(md, encoding="utf-8")
         return {"final": md}
 
@@ -506,7 +517,7 @@ def generate_and_place_images(state: BlogState) -> dict:
         img_md = f"![{spec['alt']}](images/{filename})\n*{spec['caption']}*"
         md = md.replace(placeholder, img_md)
 
-    filename = f"{plan.blog_title}.md"
+    filename = f"{safe_title}.md"
     Path(filename).write_text(md, encoding="utf-8")
     return {"final": md}
 
@@ -583,7 +594,20 @@ def run(topic: str, as_of: Optional[str] = None):
 
     return out
 
-run("State of Multimodal LLMs in 2026")
 
+if __name__ == "__main__":
+    topic = "impact of mobile on brain health"
+    if len(sys.argv) > 1 and sys.argv[1].strip():
+        topic = sys.argv[1].strip()
 
-print("working...")
+    out = run(topic)
+    plan = out.get("plan")
+    import re
+    blog_title = getattr(plan, "blog_title", topic)
+    safe_title = re.sub(r'[<>:"/\\|?*]', '', blog_title)
+    output_file = f"{safe_title}.md"
+    final_text = out.get("final", "")
+
+    print(f"Saved markdown file: {output_file}")
+    print(f"Final content length: {len(final_text)} chars")
+    print("working...")
