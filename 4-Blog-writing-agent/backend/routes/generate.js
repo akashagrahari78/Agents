@@ -1,9 +1,9 @@
 const express = require('express');
-const { optionalAuth } = require('../middleware/authMiddleware.js');
+const { protect } = require('../middleware/authMiddleware.js');
 const { generateBlog } = require('../controllers/generateController.js');
 
 const router = express.Router();
 
-router.post('/', optionalAuth, generateBlog);
+router.post('/', protect, generateBlog);
 
 module.exports = router;

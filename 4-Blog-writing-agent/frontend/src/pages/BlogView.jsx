@@ -12,17 +12,9 @@ export default function BlogView() {
   const [blog, setBlog] = useState(null)
   const [loading, setLoading] = useState(true)
   const token = useStore(state => state.token)
-  const localBlogs = useStore(state => state.localBlogs)
 
   useEffect(() => {
     const fetchBlog = async () => {
-      if (!token) {
-        const foundLocal = localBlogs.find(b => (b._id || b.id) === id)
-        if (foundLocal) setBlog(foundLocal)
-        setLoading(false)
-        return
-      }
-
       try {
         const res = await axios.get('/api/blogs', {
           headers: { Authorization: `Bearer ${token}` }
@@ -36,7 +28,7 @@ export default function BlogView() {
       }
     }
     fetchBlog()
-  }, [id, token, localBlogs])
+  }, [id, token])
 
   if (loading) {
     return <div className="generate-container flex items-center justify-center min-h-screen text-white">Loading...</div>

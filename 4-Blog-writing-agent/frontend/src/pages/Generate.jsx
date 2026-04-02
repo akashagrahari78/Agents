@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { HiOutlineChevronDown, HiOutlineClipboardCopy, HiOutlineDownload, HiOutlinePencil } from 'react-icons/hi'
-import ModeSelector from '../components/ModeSelector'
+import { motion } from 'framer-motion'
+import { HiOutlineClipboardCopy, HiOutlineDownload, HiOutlineDocumentDownload, HiOutlinePencil } from 'react-icons/hi'
 import ProgressTracker from '../components/ProgressTracker'
 import MarkdownViewer from '../components/MarkdownViewer'
 import { useGenerate } from '../hooks/useGenerate'
@@ -16,10 +15,30 @@ const EXAMPLE_TOPICS = [
   'AI Code Assistants: A Deep Dive',
 ]
 
+const LLM_OPTIONS = [
+  {
+    provider: 'groq',
+    label: 'Groq',
+    model: 'llama-3.3-70b-versatile',
+    description: 'Fast and strong for long technical drafts.',
+  },
+  {
+    provider: 'openai',
+    label: 'ChatGPT',
+    model: 'gpt-4.1-mini',
+    description: 'Balanced writing quality and reliability.',
+  },
+  {
+    provider: 'claude',
+    label: 'Claude',
+    model: 'claude-3-5-sonnet-latest',
+    description: 'Great for polished long-form writing.',
+  },
+]
+
 export default function Generate() {
   const [topic, setTopic] = useState('')
-  const [mode, setMode] = useState('hybrid')
-  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [selectedLlm, setSelectedLlm] = useState(LLM_OPTIONS[0])
   const [audience, setAudience] = useState('developers')
   const [tone, setTone] = useState('professional')
   const [wordRange, setWordRange] = useState(2000)
@@ -33,6 +52,7 @@ export default function Generate() {
   const { isGenerating, progress, generatedBlog, editMode, toggleEditMode, setEditMode } = useStore()
   const [editContent, setEditContent] = useState('')
   const textareaRef = useRef(null)
+  const exportPreviewRef = useRef(null)
 
   useEffect(() => {
     const interval = setInterval(() => setPlaceholderIndex(i => (i + 1) % EXAMPLE_TOPICS.length), 3000)
@@ -46,7 +66,17 @@ export default function Generate() {
   const handleGenerate = () => {
     if (!topic.trim()) return
     setEditMode(false)
-    generate({ topic: topic.trim(), mode, audience, tone, targetWordCount: wordRange, includeCode, includeCitations, includeImages })
+    generate({
+      topic: topic.trim(),
+      llmProvider: selectedLlm.provider,
+      llmModel: selectedLlm.model,
+      audience,
+      tone,
+      targetWordCount: wordRange,
+      includeCode,
+      includeCitations,
+      includeImages,
+    })
   }
 
   const handleCopy = () => {
@@ -71,8 +101,61 @@ export default function Generate() {
     }
   }
 
+  const handleExportPdf = () => {
+    const content = editMode ? editContent : generatedBlog?.finalMarkdown
+    const renderedHtml = exportPreviewRef.current?.innerHTML
+    if (!content || !renderedHtml) return
+
+    const printWindow = window.open('', '_blank', 'width=900,height=700')
+    if (!printWindow) return
+
+    const safeTitle = (generatedBlog?.plan?.blog_title || topic || 'blog')
+      .replace(/[<>:"/\\|?*]+/g, '')
+
+    printWindow.document.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <title>${safeTitle}</title>
+          <style>
+            * { box-sizing: border-box; }
+            body { font-family: Arial, sans-serif; margin: 40px; color: #111827; line-height: 1.7; background: white; }
+            .print-wrap { max-width: 900px; margin: 0 auto; }
+            .print-title { font-size: 2rem; font-weight: 800; margin-bottom: 2rem; line-height: 1.2; }
+            .markdown-body h1, .markdown-body h2, .markdown-body h3 { color: #111827; line-height: 1.25; margin-top: 1.75rem; margin-bottom: 0.85rem; }
+            .markdown-body h1 { font-size: 2rem; }
+            .markdown-body h2 { font-size: 1.45rem; }
+            .markdown-body h3 { font-size: 1.15rem; }
+            .markdown-body p, .markdown-body li { color: #374151; font-size: 0.98rem; margin-bottom: 0.9rem; }
+            .markdown-body ul, .markdown-body ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+            .markdown-body blockquote { border-left: 4px solid #8b5cf6; background: #f5f3ff; color: #4b5563; padding: 0.9rem 1rem; border-radius: 0 10px 10px 0; margin: 1rem 0; }
+            .markdown-body pre { white-space: pre-wrap; word-break: break-word; background: #111827; color: #f9fafb; padding: 16px; border-radius: 10px; overflow: hidden; margin-bottom: 1rem; }
+            .markdown-body code:not(pre code) { background: #f3f4f6; color: #7c3aed; padding: 0.12rem 0.35rem; border-radius: 6px; font-size: 0.9em; }
+            .markdown-body img { max-width: 100%; height: auto; margin: 1rem 0 0.5rem; }
+            .markdown-body a { color: #2563eb; text-decoration: none; }
+            .markdown-body hr { border: none; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+            @page { margin: 18mm 14mm; }
+            @media print {
+              body { margin: 0; }
+              .print-wrap { max-width: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="print-wrap">
+            <div class="markdown-body">${renderedHtml}</div>
+          </div>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+    printWindow.focus()
+    printWindow.print()
+  }
+
   const blogContent = editMode ? editContent : generatedBlog?.finalMarkdown
   const wc = wordCount(blogContent || '')
+  const activeStep = progress.find((step) => step.status === 'active')
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="generate-container">
@@ -90,82 +173,89 @@ export default function Generate() {
             </div>
 
             <div>
-              <label className="input-label">Research Mode</label>
-              <ModeSelector value={mode} onChange={setMode} />
+              <label className="input-label">LLM Provider</label>
+              <div className="tone-group" style={{ flexWrap: 'wrap' }}>
+                {LLM_OPTIONS.map((option) => (
+                  <button
+                    key={option.provider}
+                    type="button"
+                    onClick={() => setSelectedLlm(option)}
+                    className="tone-btn"
+                    style={{
+                      flex: '1 1 30%',
+                      minWidth: '120px',
+                      padding: '0.75rem',
+                      borderRadius: '0.9rem',
+                      backgroundColor: selectedLlm.provider === option.provider ? 'rgba(139, 92, 246, 0.12)' : 'var(--color-bg-elevated)',
+                      color: selectedLlm.provider === option.provider ? '#e9d5ff' : 'var(--color-text-primary)',
+                      border: selectedLlm.provider === option.provider ? '1px solid rgba(139, 92, 246, 0.4)' : '1px solid var(--color-border)',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <div style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '0.2rem' }}>{option.label}</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginBottom: '0.3rem' }}>{option.model}</div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--color-text-subtle)', lineHeight: 1.4 }}>{option.description}</div>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div>
-              <button onClick={() => setShowAdvanced(!showAdvanced)} className="advanced-toggle">
-                Advanced Options
-                <motion.span animate={{ rotate: showAdvanced ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                  <HiOutlineChevronDown />
-                </motion.span>
-              </button>
+              <div className="advanced-content">
+                <div>
+                  <label className="input-label" style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>Audience</label>
+                  <select value={audience} onChange={e => setAudience(e.target.value)} className="select-input">
+                    <option value="developers">Developers</option>
+                    <option value="beginners">Beginners</option>
+                    <option value="technical-leads">Technical Leads</option>
+                    <option value="general">General Audience</option>
+                    <option value="executives">Executives / Business</option>
+                  </select>
+                </div>
 
-              <AnimatePresence>
-                {showAdvanced && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.3 }} className="advanced-panel"
-                  >
-                    <div className="advanced-content">
-                      <div>
-                        <label className="input-label" style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>Audience</label>
-                        <select value={audience} onChange={e => setAudience(e.target.value)} className="select-input">
-                          <option value="developers">Developers</option>
-                          <option value="beginners">Beginners</option>
-                          <option value="technical-leads">Technical Leads</option>
-                          <option value="general">General Audience</option>
-                          <option value="executives">Executives / Business</option>
-                        </select>
-                      </div>
+                <div>
+                  <label className="input-label" style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>Tone</label>
+                  <div className="tone-group">
+                    {['professional', 'casual', 'academic'].map((t) => (
+                      <button
+                        key={t} onClick={() => setTone(t)}
+                        className="tone-btn"
+                        style={{
+                          backgroundColor: tone === t ? 'rgba(139, 92, 246, 0.1)' : 'transparent',
+                          color: tone === t ? '#c084fc' : 'var(--color-text-muted)',
+                          border: tone === t ? '1px solid rgba(139, 92, 246, 0.4)' : '1px solid var(--color-border)',
+                        }}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-                      <div>
-                        <label className="input-label" style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>Tone</label>
-                        <div className="tone-group">
-                          {['professional', 'casual', 'academic'].map((t) => (
-                            <button
-                              key={t} onClick={() => setTone(t)}
-                              className="tone-btn"
-                              style={{
-                                backgroundColor: tone === t ? 'rgba(139, 92, 246, 0.1)' : 'transparent',
-                                color: tone === t ? '#c084fc' : 'var(--color-text-muted)',
-                                border: tone === t ? '1px solid rgba(139, 92, 246, 0.4)' : '1px solid var(--color-border)',
-                              }}
-                            >
-                              {t}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+                <div>
+                  <label className="word-count-header">
+                    Target Word Count
+                    <span style={{ color: '#d946ef', fontWeight: '600' }}>{wordRange.toLocaleString()}</span>
+                  </label>
+                  <input type="range" min={500} max={5000} step={100} value={wordRange} onChange={e => setWordRange(Number(e.target.value))} className="slider-input" />
+                  <div className="slider-labels"><span>500</span><span>5,000</span></div>
+                </div>
 
-                      <div>
-                        <label className="word-count-header">
-                          Target Word Count
-                          <span style={{ color: '#d946ef', fontWeight: '600' }}>{wordRange.toLocaleString()}</span>
-                        </label>
-                        <input type="range" min={500} max={5000} step={100} value={wordRange} onChange={e => setWordRange(Number(e.target.value))} className="slider-input" />
-                        <div className="slider-labels"><span>500</span><span>5,000</span></div>
+                <div className="toggle-group">
+                  {[
+                    { label: 'Include Code Snippets', value: includeCode, onChange: setIncludeCode },
+                    { label: 'Include Citations', value: includeCitations, onChange: setIncludeCitations },
+                    { label: 'Generate Images', value: includeImages, onChange: setIncludeImages },
+                  ].map((toggle) => (
+                    <label key={toggle.label} className="toggle-item">
+                      <span className="toggle-label">{toggle.label}</span>
+                      <div onClick={() => toggle.onChange(!toggle.value)} className={`toggle-switch ${toggle.value ? 'on' : ''}`} style={{ backgroundColor: !toggle.value ? 'var(--color-bg-hover)' : '' }}>
+                        <div className="toggle-knob" />
                       </div>
-
-                      <div className="toggle-group">
-                        {[
-                          { label: 'Include Code Snippets', value: includeCode, onChange: setIncludeCode },
-                          { label: 'Include Citations', value: includeCitations, onChange: setIncludeCitations },
-                          { label: 'Generate Images', value: includeImages, onChange: setIncludeImages },
-                        ].map((toggle) => (
-                          <label key={toggle.label} className="toggle-item">
-                            <span className="toggle-label">{toggle.label}</span>
-                            <div onClick={() => toggle.onChange(!toggle.value)} className={`toggle-switch ${toggle.value ? 'on' : ''}`} style={{ backgroundColor: !toggle.value ? 'var(--color-bg-hover)' : '' }}>
-                              <div className="toggle-knob" />
-                            </div>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                    </label>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <button
@@ -183,13 +273,21 @@ export default function Generate() {
         <div className="panel-right">
           {generatedBlog && (
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="right-toolbar">
-              <span className="word-badge">{wc.toLocaleString()} words</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <span className="word-badge">{wc.toLocaleString()} words</span>
+                <span className="word-badge" style={{ backgroundColor: 'rgba(6, 182, 212, 0.12)', color: '#67e8f9' }}>
+                  {(generatedBlog?.llmProvider || selectedLlm.provider).toUpperCase()}
+                </span>
+              </div>
               <div className="toolbar-actions">
                 <button onClick={handleCopy} className="action-btn" style={{ backgroundColor: 'var(--color-bg-elevated)', color: copied ? '#10b981' : 'var(--color-text-muted)' }}>
                   <HiOutlineClipboardCopy /> {copied ? 'Copied!' : 'Copy MD'}
                 </button>
                 <button onClick={handleDownload} className="action-btn" style={{ backgroundColor: 'var(--color-bg-elevated)', color: 'var(--color-text-muted)' }}>
                   <HiOutlineDownload /> Download
+                </button>
+                <button onClick={handleExportPdf} className="action-btn" style={{ backgroundColor: 'var(--color-bg-elevated)', color: 'var(--color-text-muted)' }}>
+                  <HiOutlineDocumentDownload /> Export PDF
                 </button>
                 <button onClick={toggleEditMode} className="action-btn" style={{ backgroundColor: editMode ? 'rgba(139, 92, 246, 0.1)' : 'transparent', color: editMode ? '#c084fc' : 'var(--color-text-muted)' }}>
                   <HiOutlinePencil /> {editMode ? 'Preview' : 'Edit'}
@@ -201,6 +299,16 @@ export default function Generate() {
           {isGenerating && progress.length > 0 && (
             <div className="section-card">
               <h3 className="input-label" style={{ fontSize: '0.875rem' }}>Generation Progress</h3>
+              {activeStep && (
+                <div style={{ marginBottom: '1rem', padding: '0.9rem 1rem', borderRadius: '0.85rem', backgroundColor: 'rgba(139, 92, 246, 0.08)', border: '1px solid rgba(139, 92, 246, 0.18)' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#c084fc', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>
+                    Current Step
+                  </div>
+                  <div style={{ fontSize: '0.95rem', color: 'var(--color-text-primary)', fontWeight: 600 }}>
+                    {activeStep.label}
+                  </div>
+                </div>
+              )}
               <ProgressTracker steps={progress} />
             </div>
           )}
@@ -213,6 +321,14 @@ export default function Generate() {
                 <MarkdownViewer content={blogContent} />
               )}
             </motion.div>
+          )}
+
+          {generatedBlog && (
+            <div style={{ position: 'absolute', left: '-99999px', top: 0, width: '820px', pointerEvents: 'none', opacity: 0 }}>
+              <div ref={exportPreviewRef}>
+                <MarkdownViewer content={blogContent} animate={false} />
+              </div>
+            </div>
           )}
 
           {!isGenerating && !generatedBlog && (

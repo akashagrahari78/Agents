@@ -8,6 +8,8 @@ const blogSchema = new mongoose.Schema({
   },
   topic: { type: String, required: true },
   mode: { type: String, enum: ['closed_book', 'hybrid', 'open_book'], default: 'hybrid' },
+  llmProvider: { type: String, default: 'groq' },
+  llmModel: { type: String, default: '' },
   plan: { type: Object, default: null },
   sections: { type: Array, default: [] },
   finalMarkdown: { type: String, default: '' },

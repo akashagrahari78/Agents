@@ -1,4 +1,5 @@
 const Blog = require('../models/Blog.js');
+const mongoose = require('mongoose');
 
 async function getBlogs(req, res) {
   try {
@@ -24,7 +25,7 @@ async function getBlogById(req, res) {
 
 async function updateBlog(req, res) {
   try {
-    const allowedFields = ['topic', 'mode', 'plan', 'sections', 'finalMarkdown', 'imageSpecs', 'wordCount'];
+    const allowedFields = ['topic', 'mode', 'llmProvider', 'llmModel', 'plan', 'sections', 'finalMarkdown', 'imageSpecs', 'wordCount'];
     const updates = Object.fromEntries(
       Object.entries(req.body || {}).filter(([key]) => allowedFields.includes(key))
     );
@@ -47,6 +48,10 @@ async function updateBlog(req, res) {
 
 async function deleteBlog(req, res) {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid blog id' });
+    }
+
     const deleted = await Blog.findOneAndDelete({ _id: req.params.id, user: req.user.id }).lean();
     if (!deleted) {
       return res.status(404).json({ message: 'Blog not found' });

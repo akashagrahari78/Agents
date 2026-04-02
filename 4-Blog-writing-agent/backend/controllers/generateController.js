@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const Blog = require('../models/Blog.js');
 const { runAgent } = require('../services/agentRunner.js');
+const MAX_BLOGS_PER_USER = 8;
 
 async function generateBlog(req, res) {
   res.setHeader('Content-Type', 'text/event-stream');
@@ -26,10 +27,21 @@ async function generateBlog(req, res) {
 
     let savedBlog = null;
     if (mongoose.connection.readyState === 1 && req.user?.id) {
+      const existingBlogCount = await Blog.countDocuments({ user: req.user.id });
+      if (existingBlogCount >= MAX_BLOGS_PER_USER) {
+        sendEvent({
+          type: 'error',
+          message: `You can only store up to ${MAX_BLOGS_PER_USER} blogs in history. Delete an older blog to save a new one.`,
+        });
+        return;
+      }
+
       savedBlog = await Blog.create({
         user: req.user.id,
         topic,
         mode: result.mode || req.body.mode || 'hybrid',
+        llmProvider: result.llmProvider || req.body.llmProvider || 'groq',
+        llmModel: result.llmModel || req.body.llmModel || '',
         plan: result.plan,
         sections: result.sections,
         finalMarkdown: result.finalMarkdown,
@@ -51,7 +63,7 @@ async function generateBlog(req, res) {
           },
     });
   } catch (error) {
-    sendEvent({ type: 'error', message: error.message || 'Generation failed' });
+    sendEvent({ type: 'error', message: error.userMessage || error.message || 'Generation failed' });
   } finally {
     res.end();
   }

@@ -1,6 +1,34 @@
 const { spawn } = require('child_process');
 const path = require('path');
 
+function buildFriendlyAgentError(rawMessage) {
+  const message = rawMessage || 'Generation failed';
+
+  if (message.includes('groq.RateLimitError') || message.includes('Rate limit reached for model')) {
+    const retryMatch = message.match(/Please try again in\s+([^.]+(?:\.\d+)?s?)/i);
+    const retryAfter = retryMatch ? retryMatch[1].trim() : null;
+    const friendlyMessage = retryAfter
+      ? `Groq rate limit reached for the blog model. Please try again in about ${retryAfter}.`
+      : 'Groq rate limit reached for the blog model. Please try again later.';
+
+    const error = new Error(friendlyMessage);
+    error.userMessage = friendlyMessage;
+    return error;
+  }
+
+  const quotaMatch = message.match(/Need more tokens\?/i);
+  if (quotaMatch) {
+    const friendlyMessage = 'The Groq daily token quota has been exhausted for this project. Please wait and try again later.';
+    const error = new Error(friendlyMessage);
+    error.userMessage = friendlyMessage;
+    return error;
+  }
+
+  const error = new Error(message);
+  error.userMessage = message;
+  return error;
+}
+
 /**
  * Runs the Python LangGraph blog-writing agent and streams progress steps via a callback.
  * 
@@ -9,7 +37,7 @@ const path = require('path');
  * @returns {Promise<Object>} - The generated blog data
  */
 async function runAgent(params, onStep) {
-  const { topic, mode } = params;
+  const { topic, llmProvider, llmModel } = params;
 
   return new Promise((resolve, reject) => {
     // Step 0: Routing
@@ -19,9 +47,11 @@ async function runAgent(params, onStep) {
     const agentScriptDir = path.resolve(__dirname, '..', '..');
     const wrapperScript = path.resolve(__dirname, 'agent_wrapper.py');
     const pythonCommand = process.platform === 'win32' ? 'py' : 'python3';
+    const provider = llmProvider || 'groq';
+    const model = llmModel || '';
     const pythonArgs = process.platform === 'win32'
-      ? [wrapperScript, topic, mode || 'hybrid']
-      : [wrapperScript, topic, mode || 'hybrid'];
+      ? [wrapperScript, topic, provider, model]
+      : [wrapperScript, topic, provider, model];
 
     const child = spawn(pythonCommand, pythonArgs, {
       cwd: agentScriptDir,
@@ -58,7 +88,7 @@ async function runAgent(params, onStep) {
 
     child.on('close', (code) => {
       if (code !== 0) {
-        reject(new Error(`Agent exited with code ${code}: ${stderr}`));
+        reject(buildFriendlyAgentError(`Agent exited with code ${code}: ${stderr}`));
         return;
       }
 
@@ -69,15 +99,15 @@ async function runAgent(params, onStep) {
           const result = JSON.parse(jsonMatch[1]);
           resolve(result);
         } else {
-          reject(new Error('No result found in agent output'));
+          reject(buildFriendlyAgentError('No result found in agent output'));
         }
       } catch (e) {
-        reject(new Error(`Failed to parse agent output: ${e.message}`));
+        reject(buildFriendlyAgentError(`Failed to parse agent output: ${e.message}`));
       }
     });
 
     child.on('error', (err) => {
-      reject(err);
+      reject(buildFriendlyAgentError(err.message || 'Failed to start agent process'));
     });
   });
 }

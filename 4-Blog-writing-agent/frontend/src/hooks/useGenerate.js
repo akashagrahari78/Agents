@@ -2,12 +2,32 @@ import { useState, useCallback } from 'react'
 import useStore from '../store/useStore'
 
 const STEP_LABELS = [
-  'Routing topic...',
-  'Running research (Tavily)...',
-  'Planning sections...',
-  'Writing sections...',
-  'Assembling final blog...',
+  'Analyzing topic and selecting the best writing mode',
+  'Researching sources and gathering useful evidence',
+  'Generating outline and planning sections',
+  'Writing the blog sections',
+  'Assembling the final blog and formatting output',
 ]
+
+function getFriendlyErrorMessage(message) {
+  if (!message) {
+    return 'Unable to complete blog generation right now. Please try again.'
+  }
+
+  if (message.includes('Rate limit') || message.includes('groq.RateLimitError') || message.includes('429')) {
+    return 'The blog generator is temporarily rate-limited. Please wait a bit and try again.'
+  }
+
+  if (message.includes('Traceback') || message.includes('Agent exited with code')) {
+    return 'Unable to complete blog generation right now. Please try again.'
+  }
+
+  if (message.length > 220) {
+    return 'Generation failed before the blog could be completed. Please try again.'
+  }
+
+  return message
+}
 
 export function useGenerate() {
   const {
@@ -16,7 +36,6 @@ export function useGenerate() {
     updateProgress,
     resetProgress,
     setGeneratedBlog,
-    saveGeneratedBlog,
   } = useStore()
 
   const [error, setError] = useState(null)
@@ -28,8 +47,12 @@ export function useGenerate() {
     setGeneratedBlog(null)
 
     // Initialize all steps
-    STEP_LABELS.forEach((label) => {
-      addProgress({ label, status: 'pending' })
+    STEP_LABELS.forEach((label, index) => {
+      addProgress({
+        id: index,
+        label,
+        status: 'pending',
+      })
     })
 
     try {
@@ -73,11 +96,14 @@ export function useGenerate() {
 
               if (data.type === 'complete') {
                 setGeneratedBlog(data.blog)
-                saveGeneratedBlog(data.blog)
               }
 
               if (data.type === 'error') {
-                setError(data.message)
+                const activeStepIndex = useStore.getState().progress.findIndex((step) => step.status === 'active')
+                if (activeStepIndex !== -1) {
+                  updateProgress(activeStepIndex, { status: 'error' })
+                }
+                setError(getFriendlyErrorMessage(data.message))
               }
             } catch (e) {
               // Skip malformed SSE lines
@@ -86,11 +112,11 @@ export function useGenerate() {
         }
       }
     } catch (err) {
-      setError(err.message || 'Generation failed')
+      setError(getFriendlyErrorMessage(err.message))
     } finally {
       setIsGenerating(false)
     }
-  }, [setIsGenerating, addProgress, updateProgress, resetProgress, setGeneratedBlog, saveGeneratedBlog])
+  }, [setIsGenerating, addProgress, updateProgress, resetProgress, setGeneratedBlog])
 
   return { generate, error }
 }

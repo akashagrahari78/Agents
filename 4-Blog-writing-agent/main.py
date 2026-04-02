@@ -1,8 +1,9 @@
 from langgraph.graph import StateGraph, START, END
 from typing import TypedDict, List, Annotated, Literal, Optional
 from pydantic import BaseModel, Field
-from langchain_openai import ChatOpenAI
 from langchain_groq import ChatGroq
+from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 from langchain_tavily import TavilySearch
 from langgraph.types import Send
 from langchain.messages import HumanMessage, AIMessage, SystemMessage
@@ -16,16 +17,67 @@ load_dotenv()
 
 
 # --------------------------------------------llm--------------------------------------------
-# llm = ChatOpenAI(
-#     model="gpt-4.1-mini",
-#     temperature=0
-# )
+DEFAULT_PROVIDER = "groq"
+DEFAULT_MODEL_BY_PROVIDER = {
+    "groq": "llama-3.3-70b-versatile",
+    "openai": "gpt-4.1-mini",
+    "claude": "claude-3-5-sonnet-latest",
+}
+
+llm = None
+active_provider = DEFAULT_PROVIDER
+active_model = DEFAULT_MODEL_BY_PROVIDER[DEFAULT_PROVIDER]
 
 
-llm = ChatGroq(
-    model="llama-3.3-70b-versatile",
-    temperature=0
-)
+def configure_llm(provider: Optional[str] = None, model: Optional[str] = None):
+    global llm, active_provider, active_model
+
+    selected_provider = (provider or DEFAULT_PROVIDER).strip().lower()
+    selected_model = (model or DEFAULT_MODEL_BY_PROVIDER.get(selected_provider) or "").strip()
+
+    if selected_provider not in DEFAULT_MODEL_BY_PROVIDER:
+        raise ValueError(f"Unsupported LLM provider: {selected_provider}")
+
+    if not selected_model:
+        selected_model = DEFAULT_MODEL_BY_PROVIDER[selected_provider]
+
+    if selected_provider == "groq":
+        if not os.environ.get("GROQ_API_KEY"):
+            raise RuntimeError("GROQ_API_KEY is not set.")
+        from langchain_groq import ChatGroq
+
+        llm = ChatGroq(
+            model=selected_model,
+            temperature=0
+        )
+    elif selected_provider == "openai":
+        if not os.environ.get("OPENAI_API_KEY"):
+            raise RuntimeError("OPENAI_API_KEY is not set.")
+        from langchain_openai import ChatOpenAI
+
+        llm = ChatOpenAI(
+            model=selected_model,
+            temperature=0
+        )
+    elif selected_provider == "claude":
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            raise RuntimeError("ANTHROPIC_API_KEY is not set.")
+        try:
+            from langchain_anthropic import ChatAnthropic
+        except ImportError as exc:
+            raise RuntimeError("Claude support requires langchain-anthropic to be installed.") from exc
+
+        llm = ChatAnthropic(
+            model=selected_model,
+            temperature=0
+        )
+
+    active_provider = selected_provider
+    active_model = selected_model
+    return llm
+
+
+configure_llm()
 
 
 #----------------------------------------------structured Outputs----------------------------
@@ -100,6 +152,8 @@ class GlobalImagePlan(BaseModel):
 
 class BlogState(TypedDict):
     topic: str
+    llm_provider: str
+    llm_model: str
 
     # routing / research
     mode: str
@@ -571,13 +625,17 @@ graph.add_edge('reducer', END)
 workflow = graph.compile()
  
 
-def run(topic: str, as_of: Optional[str] = None):
+def run(topic: str, as_of: Optional[str] = None, llm_provider: Optional[str] = None, llm_model: Optional[str] = None):
     if as_of is None:
         as_of = date.today().isoformat()
+
+    configure_llm(llm_provider, llm_model)
 
     out = workflow.invoke(
         {
             "topic": topic,
+            "llm_provider": active_provider,
+            "llm_model": active_model,
             "mode": "",
             "needs_research": False,
             "queries": [],
@@ -598,10 +656,16 @@ def run(topic: str, as_of: Optional[str] = None):
 
 if __name__ == "__main__":
     topic = "impact of mobile on brain health"
+    llm_provider = DEFAULT_PROVIDER
+    llm_model = DEFAULT_MODEL_BY_PROVIDER[DEFAULT_PROVIDER]
     if len(sys.argv) > 1 and sys.argv[1].strip():
         topic = sys.argv[1].strip()
+    if len(sys.argv) > 2 and sys.argv[2].strip():
+        llm_provider = sys.argv[2].strip()
+    if len(sys.argv) > 3 and sys.argv[3].strip():
+        llm_model = sys.argv[3].strip()
 
-    out = run(topic)
+    out = run(topic, llm_provider=llm_provider, llm_model=llm_model)
     plan = out.get("plan")
     import re
     blog_title = getattr(plan, "blog_title", topic)

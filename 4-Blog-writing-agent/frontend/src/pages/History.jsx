@@ -9,50 +9,50 @@ export default function History() {
   const [history, setHistory] = useState([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [deletingId, setDeletingId] = useState('')
   const token = useStore(state => state.token)
-  const localBlogs = useStore(state => state.localBlogs)
-  const deleteLocalBlog = useStore(state => state.deleteLocalBlog)
 
-  useEffect(() => {
-    const fetchHistory = async () => {
-      if (!token) {
-        setHistory(localBlogs)
-        setLoading(false)
-        return
-      }
-
-      try {
-        const res = await axios.get('/api/blogs', {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-        setHistory(res.data)
-      } catch (err) {
-        console.error('Failed to fetch history', err)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchHistory()
-  }, [token, localBlogs])
-
-  const handleDelete = async (id) => {
-    if (!token) {
-      deleteLocalBlog(id)
-      setHistory((prev) => prev.filter(b => b._id !== id && b.id !== id))
-      return
-    }
+  const fetchHistory = async () => {
+    setLoading(true)
+    setError('')
 
     try {
-      await axios.delete(`/api/blogs/${id}`, {
+      const res = await axios.get('/api/blogs', {
         headers: { Authorization: `Bearer ${token}` }
       })
-      setHistory((prev) => prev.filter(b => b._id !== id && b.id !== id))
+      setHistory(res.data)
     } catch (err) {
-      console.error('Failed to delete', err)
+      console.error('Failed to fetch history', err)
+      setError(err.response?.data?.message || 'Failed to load history')
+    } finally {
+      setLoading(false)
     }
   }
 
-  // Handle either MongoDB _id or local id
+  useEffect(() => {
+    fetchHistory()
+  }, [token])
+
+  const handleDelete = async (id) => {
+    if (!id) return
+
+    try {
+      setDeletingId(id)
+      setError('')
+      setHistory((prev) => prev.filter(b => b._id !== id && b.id !== id))
+      await axios.delete(`/api/blogs/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+    } catch (err) {
+      console.error('Failed to delete', err)
+      setError(err.response?.data?.message || 'Failed to delete blog')
+      await fetchHistory()
+    } finally {
+      setDeletingId('')
+    }
+  }
+
   const filtered = history.filter(b => (b.topic || b.plan?.blog_title || '').toLowerCase().includes(search.toLowerCase()))
 
   return (
@@ -75,6 +75,13 @@ export default function History() {
           <div className="empty-state">
             <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" style={{ margin: '0 auto', width: '30px', height: '30px' }} />
           </div>
+        ) : error ? (
+          <div className="empty-state">
+            <div style={{ textAlign: 'center' }}>
+              <div className="empty-box"><HiOutlineDocumentSearch size={40} color="var(--color-text-subtle)" /></div>
+              <p style={{ color: '#f87171' }}>{error}</p>
+            </div>
+          </div>
         ) : filtered.length === 0 ? (
           <div className="empty-state">
             <div style={{ textAlign: 'center' }}>
@@ -85,7 +92,12 @@ export default function History() {
         ) : (
           <div className="history-grid">
             {filtered.map(blog => (
-              <BlogCard key={blog._id || blog.id} blog={blog} onDelete={() => handleDelete(blog._id || blog.id)} />
+              <BlogCard
+                key={blog._id || blog.id}
+                blog={blog}
+                onDelete={() => handleDelete(blog._id || blog.id)}
+                isDeleting={deletingId === (blog._id || blog.id)}
+              />
             ))}
           </div>
         )}

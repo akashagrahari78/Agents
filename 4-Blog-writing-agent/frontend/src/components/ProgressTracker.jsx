@@ -29,21 +29,36 @@ export default function ProgressTracker({ steps }) {
 
           <div style={{ flex: 1, paddingBottom: '0.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
+              <HiOutlineDesktopComputer
+                size={14}
+                color={step.status === 'pending' ? 'var(--color-text-subtle)' : '#c084fc'}
+              />
               <span style={{ fontSize: '0.8rem', fontWeight: 600, color: step.status === 'pending' ? 'var(--color-text-muted)' : 'var(--color-text-primary)', textTransform: 'capitalize' }}>
-                {step.node?.replace(/_/g, ' ')}
+                {step.label}
               </span>
               {step.status === 'active' && (
                 <span style={{ fontSize: '0.65rem', padding: '0.15rem 0.4rem', borderRadius: '99px', backgroundColor: 'rgba(139, 92, 246, 0.1)', color: '#c084fc' }}>
                   Processing
                 </span>
               )}
+              {step.status === 'done' && (
+                <span style={{ fontSize: '0.65rem', padding: '0.15rem 0.4rem', borderRadius: '99px', backgroundColor: 'rgba(16, 185, 129, 0.12)', color: '#34d399' }}>
+                  Done
+                </span>
+              )}
+              {step.status === 'error' && (
+                <span style={{ fontSize: '0.65rem', padding: '0.15rem 0.4rem', borderRadius: '99px', backgroundColor: 'rgba(239, 68, 68, 0.12)', color: '#f87171' }}>
+                  Error
+                </span>
+              )}
             </div>
-            
-            {step.details && (
-              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-subtle)', lineHeight: 1.5, marginTop: '0.25rem', padding: '0.5rem', backgroundColor: 'var(--color-bg-primary)', borderRadius: '0.5rem', border: '1px solid var(--color-border)' }}>
-                {step.details}
-              </div>
-            )}
+
+            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-subtle)', lineHeight: 1.5 }}>
+              {step.status === 'pending' && 'Waiting for this stage to begin.'}
+              {step.status === 'active' && 'This step is running right now.'}
+              {step.status === 'done' && 'Completed successfully.'}
+              {step.status === 'error' && 'Something went wrong during this step.'}
+            </div>
           </div>
         </motion.div>
       ))}

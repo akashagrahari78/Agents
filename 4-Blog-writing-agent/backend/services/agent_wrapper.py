@@ -58,11 +58,14 @@ def build_sections(plan, final_markdown):
 
 def main():
     topic = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1].strip() else "AI in 2026"
-    mode_hint = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2].strip() else "hybrid"
+    llm_provider = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2].strip() else "groq"
+    llm_model = sys.argv[3] if len(sys.argv) > 3 and sys.argv[3].strip() else ""
 
     from langgraph.graph import START, END, StateGraph
     from main import (
         BlogState,
+        DEFAULT_MODEL_BY_PROVIDER,
+        configure_llm,
         next_route,
         router_node,
         research_node,
@@ -70,6 +73,8 @@ def main():
         worker_node,
         reducer_subgraph,
     )
+
+    configure_llm(llm_provider, llm_model or DEFAULT_MODEL_BY_PROVIDER.get(llm_provider, ""))
 
     def router_with_progress(state):
         emit_step(0, "active")
@@ -124,6 +129,8 @@ def main():
     out = workflow.invoke(
         {
             "topic": topic,
+            "llm_provider": llm_provider,
+            "llm_model": llm_model or DEFAULT_MODEL_BY_PROVIDER.get(llm_provider, ""),
             "mode": "",
             "needs_research": False,
             "queries": [],
@@ -145,7 +152,9 @@ def main():
 
     result = {
         "topic": topic,
-        "mode": out.get("mode") or mode_hint,
+        "mode": out.get("mode"),
+        "llmProvider": llm_provider,
+        "llmModel": llm_model or DEFAULT_MODEL_BY_PROVIDER.get(llm_provider, ""),
         "plan": plan.model_dump() if plan else None,
         "sections": sections,
         "finalMarkdown": final_markdown,

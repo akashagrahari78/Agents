@@ -13,6 +13,11 @@ export default function BlogCard({ blog, onDelete }) {
   const plainText = markdownToText(blog.finalMarkdown || '')
   const wc = wordCount(plainText)
   const modeStyle = modeColors[blog.mode] || modeColors.hybrid
+  const handleDeleteClick = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    onDelete()
+  }
 
   return (
     <motion.div
@@ -24,8 +29,19 @@ export default function BlogCard({ blog, onDelete }) {
           {(blog.mode || 'hybrid').replace('_', ' ')}
         </span>
         <button
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(blog._id || blog.id); }}
-          className="action-btn" style={{ background: 'transparent', padding: '0.4rem', color: 'var(--color-text-subtle)' }}
+          type="button"
+          title="Delete blog"
+          aria-label="Delete blog"
+          onMouseDown={handleDeleteClick}
+          onClick={handleDeleteClick}
+          className="action-btn"
+          style={{
+            background: 'transparent',
+            padding: '0.4rem',
+            color: 'var(--color-text-subtle)',
+            position: 'relative',
+            zIndex: 5,
+          }}
         >
           <HiOutlineTrash size={16} />
         </button>
