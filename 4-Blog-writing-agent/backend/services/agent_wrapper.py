@@ -57,9 +57,24 @@ def build_sections(plan, final_markdown):
 
 
 def main():
-    topic = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1].strip() else "AI in 2026"
-    llm_provider = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2].strip() else "groq"
-    llm_model = sys.argv[3] if len(sys.argv) > 3 and sys.argv[3].strip() else ""
+    raw_payload = sys.argv[1] if len(sys.argv) > 1 else ""
+    payload = {}
+
+    if raw_payload:
+        try:
+            payload = json.loads(raw_payload)
+        except json.JSONDecodeError:
+            payload = {"topic": raw_payload}
+
+    topic = (payload.get("topic") or "AI in 2026").strip()
+    llm_provider = (payload.get("llmProvider") or "groq").strip()
+    llm_model = (payload.get("llmModel") or "").strip()
+    audience = (payload.get("audience") or "developers").strip()
+    tone = (payload.get("tone") or "professional").strip()
+    target_word_count = int(payload.get("targetWordCount") or 2000)
+    include_code = bool(payload.get("includeCode", True))
+    include_citations = bool(payload.get("includeCitations", True))
+    include_images = bool(payload.get("includeImages", False))
 
     from langgraph.graph import START, END, StateGraph
     from main import (
@@ -131,6 +146,12 @@ def main():
             "topic": topic,
             "llm_provider": llm_provider,
             "llm_model": llm_model or DEFAULT_MODEL_BY_PROVIDER.get(llm_provider, ""),
+            "audience": audience,
+            "tone": tone,
+            "target_word_count": target_word_count,
+            "include_code": include_code,
+            "include_citations": include_citations,
+            "include_images": include_images,
             "mode": "",
             "needs_research": False,
             "queries": [],
@@ -155,6 +176,12 @@ def main():
         "mode": out.get("mode"),
         "llmProvider": llm_provider,
         "llmModel": llm_model or DEFAULT_MODEL_BY_PROVIDER.get(llm_provider, ""),
+        "audience": audience,
+        "tone": tone,
+        "targetWordCount": target_word_count,
+        "includeCode": include_code,
+        "includeCitations": include_citations,
+        "includeImages": include_images,
         "plan": plan.model_dump() if plan else None,
         "sections": sections,
         "finalMarkdown": final_markdown,

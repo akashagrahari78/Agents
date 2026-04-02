@@ -154,6 +154,12 @@ class BlogState(TypedDict):
     topic: str
     llm_provider: str
     llm_model: str
+    audience: str
+    tone: str
+    target_word_count: int
+    include_code: bool
+    include_citations: bool
+    include_images: bool
 
     # routing / research
     mode: str
@@ -316,13 +322,29 @@ def orchestrator_node(state : BlogState) -> dict:
     topic = state.get('topic')
     evidence = state.get('evidence' or [])
     mode = state.get("mode", "closed_book")
+    audience = state.get("audience", "developers")
+    tone = state.get("tone", "professional")
+    target_word_count = state.get("target_word_count", 2000)
+    include_code = state.get("include_code", True)
+    include_citations = state.get("include_citations", True)
+    include_images = state.get("include_images", False)
 
     plan = llm.with_structured_output(Plan).invoke([
         SystemMessage( ORCH_SYSTEM),
         HumanMessage(
             content=(
                     f"Topic: {state['topic']}\n"
+                    f"Preferred audience: {audience}\n"
+                    f"Preferred tone: {tone}\n"
+                    f"Approximate total length budget: about {target_word_count} words\n"
+                    f"Include code snippets: {include_code}\n"
+                    f"Include citations: {include_citations}\n"
+                    f"Include images/diagrams: {include_images}\n"
                     f"Mode: {mode}\n\n"
+                    "Honor the requested audience and tone in the plan fields.\n"
+                    "Use the length budget only as a soft guide for assigning section target words.\n"
+                    "If code snippets are disabled, set requires_code=False for every section.\n"
+                    "If citations are disabled, only require citations when absolutely necessary for accuracy.\n\n"
                     f"Evidence (ONLY use for fresh claims; may be empty):\n"
                     f"{[e.model_dump() for e in evidence][:16]}"
                 )
@@ -340,7 +362,9 @@ def fanout(state: BlogState):
             "topic": state["topic"],
             "plan": state["plan"],
             "mode": state["mode"],
-            "evidence": [e.model_dump() for e in state.get("evidence", [])]
+            "evidence": [e.model_dump() for e in state.get("evidence", [])],
+            "include_code": state.get("include_code", True),
+            "include_citations": state.get("include_citations", True),
         })
         for task in state["plan"].tasks
     ]
@@ -408,6 +432,8 @@ def worker_node(payload: dict) -> dict:
                     f"Constraints: {plan.constraints}\n"
                     f"Topic: {topic}\n"
                     f"Mode: {mode}\n\n"
+                    f"Global include_code preference: {payload.get('include_code', True)}\n"
+                    f"Global include_citations preference: {payload.get('include_citations', True)}\n\n"
                     f"Section title: {task.title}\n"
                     f"Goal: {task.goal}\n"
                     f"Target words: {task.target_words}\n"
@@ -454,6 +480,12 @@ Return strictly GlobalImagePlan.
 
 def decide_images(state: BlogState) -> dict:
     
+    if not state.get("include_images", False):
+        return {
+            "md_with_placeholders": state["merged_md"],
+            "image_specs": [],
+        }
+
     planner = llm.with_structured_output(GlobalImagePlan)
     merged_md = state["merged_md"]
     plan = state["plan"]
@@ -623,7 +655,7 @@ graph.add_edge('worker', 'reducer')
 graph.add_edge('reducer', END)
 
 workflow = graph.compile()
- 
+
 
 def run(topic: str, as_of: Optional[str] = None, llm_provider: Optional[str] = None, llm_model: Optional[str] = None):
     if as_of is None:
@@ -636,6 +668,12 @@ def run(topic: str, as_of: Optional[str] = None, llm_provider: Optional[str] = N
             "topic": topic,
             "llm_provider": active_provider,
             "llm_model": active_model,
+            "audience": "developers",
+            "tone": "professional",
+            "target_word_count": 2000,
+            "include_code": True,
+            "include_citations": True,
+            "include_images": False,
             "mode": "",
             "needs_research": False,
             "queries": [],

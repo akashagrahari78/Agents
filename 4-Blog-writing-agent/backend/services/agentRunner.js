@@ -49,9 +49,13 @@ async function runAgent(params, onStep) {
     const pythonCommand = process.platform === 'win32' ? 'py' : 'python3';
     const provider = llmProvider || 'groq';
     const model = llmModel || '';
-    const pythonArgs = process.platform === 'win32'
-      ? [wrapperScript, topic, provider, model]
-      : [wrapperScript, topic, provider, model];
+    const payload = JSON.stringify({
+      ...params,
+      topic,
+      llmProvider: provider,
+      llmModel: model,
+    });
+    const pythonArgs = [wrapperScript, payload];
 
     const child = spawn(pythonCommand, pythonArgs, {
       cwd: agentScriptDir,
