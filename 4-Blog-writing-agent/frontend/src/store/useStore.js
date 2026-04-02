@@ -32,6 +32,7 @@ const useStore = create((set) => ({
 
   progress: [],
   addProgress: (step) => set((s) => ({ progress: [...s.progress, step] })),
+  setProgress: (progress) => set({ progress }),
   updateProgress: (index, updates) => set((s) => ({
     progress: s.progress.map((p, i) => i === index ? { ...p, ...updates } : p)
   })),

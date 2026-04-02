@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { HiOutlineClipboardCopy, HiOutlineDownload, HiOutlineDocumentDownload, HiOutlinePencil, HiOutlineSparkles } from 'react-icons/hi'
+import { HiOutlineClipboardCopy, HiOutlineDownload, HiOutlineDocumentDownload, HiOutlinePencil } from 'react-icons/hi'
 import ProgressTracker from '../components/ProgressTracker'
 import MarkdownViewer from '../components/MarkdownViewer'
 import { useGenerate } from '../hooks/useGenerate'
@@ -14,6 +14,8 @@ const EXAMPLE_TOPICS = [
   'WebAssembly: The future of web apps',
   'AI Code Assistants: A Deep Dive',
 ]
+
+const MAX_TOPIC_WORDS = 30
 
 const LLM_OPTIONS = [
   {
@@ -62,6 +64,20 @@ export default function Generate() {
   useEffect(() => {
     if (generatedBlog?.finalMarkdown) setEditContent(generatedBlog.finalMarkdown)
   }, [generatedBlog])
+
+  const topicWords = wordCount(topic)
+  const isTopicLimitExceeded = topicWords > MAX_TOPIC_WORDS
+
+  const handleTopicChange = (e) => {
+    const nextValue = e.target.value
+    const nextWordCount = wordCount(nextValue)
+
+    if (nextWordCount > MAX_TOPIC_WORDS) {
+      return
+    }
+
+    setTopic(nextValue)
+  }
 
   const handleGenerate = () => {
     if (!topic.trim()) return
@@ -164,10 +180,6 @@ export default function Generate() {
   const wc = wordCount(blogContent || '')
   const activeStep = progress.find((step) => step.status === 'active')
   const reviewPlan = pendingPlanReview?.plan
-  const shouldShowGenerationProgress = progress.some(
-    (step) => step.id >= 3 && step.status !== 'pending'
-  )
-  const planningStage = isGenerating && !generatedBlog && !pendingPlanReview && !shouldShowGenerationProgress
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="generate-container">
@@ -178,10 +190,18 @@ export default function Generate() {
             <div>
               <label className="input-label">Blog Topic</label>
               <textarea
-                ref={textareaRef} value={topic} onChange={e => setTopic(e.target.value)}
+                ref={textareaRef} value={topic} onChange={handleTopicChange}
                 placeholder={EXAMPLE_TOPICS[placeholderIndex]} rows={3}
                 className="input-textarea"
               />
+              <div style={{ marginTop: '0.45rem', display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.72rem', color: 'var(--color-text-subtle)' }}>
+                  {isTopicLimitExceeded ? 'Topic cannot exceed 30 words.' : 'Keep the topic short and focused.'}
+                </span>
+                <span style={{ fontSize: '0.72rem', color: topicWords >= MAX_TOPIC_WORDS ? '#f59e0b' : 'var(--color-text-subtle)', fontWeight: 600 }}>
+                  {topicWords}/{MAX_TOPIC_WORDS} words
+                </span>
+              </div>
             </div>
 
             <div>
@@ -271,8 +291,8 @@ export default function Generate() {
             </div>
 
             <button
-              onClick={handleGenerate} disabled={isGenerating || !topic.trim() || Boolean(pendingPlanReview)}
-              className={`btn-primary generate-btn ${isGenerating || !topic.trim() || pendingPlanReview ? 'btn-secondary' : ''}`}
+              onClick={handleGenerate} disabled={isGenerating || !topic.trim() || Boolean(pendingPlanReview) || isTopicLimitExceeded}
+              className={`btn-primary generate-btn ${isGenerating || !topic.trim() || pendingPlanReview || isTopicLimitExceeded ? 'btn-secondary' : ''}`}
             >
               {isGenerating ? 'Generating...' : 'Generate Blog'}
             </button>
@@ -308,7 +328,7 @@ export default function Generate() {
             </motion.div>
           )}
 
-          {isGenerating && progress.length > 0 && shouldShowGenerationProgress && (
+          {progress.length > 0 && (isGenerating || pendingPlanReview) && (
             <div className="section-card">
               <h3 className="input-label" style={{ fontSize: '0.875rem' }}>Generation Progress</h3>
               {activeStep && (
@@ -323,43 +343,6 @@ export default function Generate() {
               )}
               <ProgressTracker steps={progress} />
             </div>
-          )}
-
-          {planningStage && (
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="section-card planning-state-card"
-            >
-              <div className="planning-state-header">
-                <div className="planning-state-icon">
-                  <HiOutlineSparkles size={24} />
-                </div>
-                <div>
-                  <h3 className="planning-state-title">Planning Your Blog</h3>
-                  <p className="planning-state-subtitle">
-                    The agent is building the outline and preparing the structure before it starts writing sections.
-                  </p>
-                </div>
-              </div>
-
-              <div className="planning-state-highlight">
-                <div className="planning-state-label">Current activity</div>
-                <div className="planning-state-value">
-                  {activeStep?.label || 'Generating outline and planning sections'}
-                </div>
-              </div>
-
-              <div className="planning-skeleton-list">
-                {[1, 2, 3, 4].map((item) => (
-                  <div key={item} className="planning-skeleton-item">
-                    <div className="planning-skeleton-line planning-skeleton-line-title" />
-                    <div className="planning-skeleton-line planning-skeleton-line-body" />
-                    <div className="planning-skeleton-line planning-skeleton-line-body short" />
-                  </div>
-                ))}
-              </div>
-            </motion.div>
           )}
 
           {pendingPlanReview && reviewPlan && (

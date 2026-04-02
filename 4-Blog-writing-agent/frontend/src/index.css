@@ -141,29 +141,9 @@ a { text-decoration: none; color: inherit; }
 .action-btn { display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.75rem; border-radius: 0.5rem; font-size: 0.75rem; font-weight: 500; border: none; cursor: pointer; transition: background-color 0.2s; }
 
 .section-card { border-radius: 1rem; padding: 1.5rem; margin-bottom: 1rem; background-color: var(--color-bg-surface); border: 1px solid var(--color-border); }
-.planning-state-card { background: linear-gradient(180deg, rgba(139, 92, 246, 0.08) 0%, rgba(14, 14, 17, 0.96) 42%); overflow: hidden; }
-.planning-state-header { display: flex; gap: 1rem; align-items: flex-start; margin-bottom: 1.5rem; }
-.planning-state-icon { width: 3rem; height: 3rem; border-radius: 1rem; display: flex; align-items: center; justify-content: center; background: rgba(139, 92, 246, 0.14); color: #d8b4fe; border: 1px solid rgba(139, 92, 246, 0.24); flex-shrink: 0; }
-.planning-state-title { font-size: 1.1rem; color: var(--color-text-primary); margin-bottom: 0.35rem; }
-.planning-state-subtitle { color: var(--color-text-muted); line-height: 1.65; font-size: 0.92rem; }
-.planning-state-highlight { padding: 1rem 1.1rem; border-radius: 1rem; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.06); margin-bottom: 1.4rem; }
-.planning-state-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: #c084fc; font-weight: 700; margin-bottom: 0.45rem; }
-.planning-state-value { color: var(--color-text-primary); font-weight: 600; line-height: 1.5; }
-.planning-skeleton-list { display: grid; gap: 0.9rem; }
-.planning-skeleton-item { padding: 1rem 1.05rem; border-radius: 0.95rem; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.04); }
-.planning-skeleton-line { height: 0.72rem; border-radius: 999px; background: linear-gradient(90deg, rgba(255,255,255,0.06) 0%, rgba(196,181,253,0.22) 50%, rgba(255,255,255,0.06) 100%); background-size: 200% 100%; animation: planningShimmer 1.6s linear infinite; }
-.planning-skeleton-line + .planning-skeleton-line { margin-top: 0.65rem; }
-.planning-skeleton-line-title { width: 42%; }
-.planning-skeleton-line-body { width: 100%; }
-.planning-skeleton-line-body.short { width: 68%; }
 .markdown-editor { width: 100%; min-height: 600px; border-radius: 0.75rem; padding: 1rem; font-size: 0.875rem; resize: vertical; outline: none; line-height: 1.7; background-color: var(--color-bg-primary); border: 1px solid var(--color-border); color: var(--color-text-primary); font-family: monospace; }
 .empty-state { display: flex; align-items: center; justify-content: center; height: 24rem; }
 .empty-box { width: 5rem; height: 5rem; border-radius: 1rem; margin: 0 auto 1rem auto; display: flex; align-items: center; justify-content: center; background-color: var(--color-bg-surface); }
-
-@keyframes planningShimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
 
 /* Globals for markdown */
 .markdown-body h1, .markdown-body h2, .markdown-body h3 { font-family: var(--font-bricolage); color: var(--color-text-primary); letter-spacing: -0.02em; margin-bottom: 1rem; margin-top: 1.5rem;}

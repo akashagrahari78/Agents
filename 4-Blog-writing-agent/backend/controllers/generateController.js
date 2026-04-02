@@ -51,8 +51,10 @@ async function generateBlog(req, res) {
       return;
     }
 
-    const result = await runAgent(req.body, (stepIndex, status) => {
-      sendEvent({ type: 'step', stepIndex, status });
+    const result = await runAgent(req.body, (event) => {
+      if (event?.type === 'step') {
+        sendEvent(event);
+      }
     });
 
     if (result.type === 'interrupt') {
@@ -98,8 +100,10 @@ async function reviewPlan(req, res) {
       return;
     }
 
-    const result = await resumeAgent(sessionId, approved, (stepIndex, status) => {
-      sendEvent({ type: 'step', stepIndex, status });
+    const result = await resumeAgent(sessionId, approved, (event) => {
+      if (event?.type === 'step') {
+        sendEvent(event);
+      }
     });
 
     if (result.type === 'interrupt') {

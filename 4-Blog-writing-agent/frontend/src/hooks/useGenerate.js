@@ -29,6 +29,14 @@ function getFriendlyErrorMessage(message) {
   return message
 }
 
+function buildInitialProgress(activeIndex = null) {
+  return STEP_LABELS.map((label, index) => ({
+    id: index,
+    label,
+    status: activeIndex === index ? 'active' : 'pending',
+  }))
+}
+
 async function readSseStream(response, onData) {
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
@@ -59,6 +67,7 @@ export function useGenerate() {
     addProgress,
     updateProgress,
     resetProgress,
+    setProgress,
     setGeneratedBlog,
     setPendingPlanReview,
     setGenerationSessionId,
@@ -84,12 +93,28 @@ export function useGenerate() {
     await readSseStream(response, (data) => {
       if (data.type === 'step') {
         if (data.stepIndex !== undefined) {
+          if (data.status === 'active') {
+            const currentProgress = useStore.getState().progress
+            for (let index = 0; index < data.stepIndex; index += 1) {
+              const step = currentProgress[index]
+              if (step && step.status !== 'done' && step.status !== 'error') {
+                updateProgress(index, { status: 'done' })
+              }
+            }
+          }
           updateProgress(data.stepIndex, { status: data.status })
         }
         return
       }
 
       if (data.type === 'plan_review') {
+        setProgress([
+          { id: 0, label: STEP_LABELS[0], status: 'done' },
+          { id: 1, label: STEP_LABELS[1], status: 'done' },
+          { id: 2, label: STEP_LABELS[2], status: 'done' },
+          { id: 3, label: STEP_LABELS[3], status: 'pending' },
+          { id: 4, label: STEP_LABELS[4], status: 'pending' },
+        ])
         setPendingPlanReview(data.review)
         setGenerationSessionId(data.sessionId)
         return
@@ -110,7 +135,7 @@ export function useGenerate() {
         setError(getFriendlyErrorMessage(data.message))
       }
     })
-  }, [setGeneratedBlog, setGenerationSessionId, setPendingPlanReview, updateProgress])
+  }, [setGeneratedBlog, setGenerationSessionId, setPendingPlanReview, setProgress, updateProgress])
 
   const generate = useCallback(async (formData) => {
     setError(null)
@@ -119,14 +144,7 @@ export function useGenerate() {
     setGeneratedBlog(null)
     setPendingPlanReview(null)
     setGenerationSessionId(null)
-
-    STEP_LABELS.forEach((label, index) => {
-      addProgress({
-        id: index,
-        label,
-        status: 'pending',
-      })
-    })
+    setProgress(buildInitialProgress())
 
     try {
       await runRequest('/api/generate', formData)
@@ -135,7 +153,7 @@ export function useGenerate() {
     } finally {
       setIsGenerating(false)
     }
-  }, [addProgress, resetProgress, runRequest, setGeneratedBlog, setGenerationSessionId, setIsGenerating, setPendingPlanReview])
+  }, [resetProgress, runRequest, setGeneratedBlog, setGenerationSessionId, setIsGenerating, setPendingPlanReview, setProgress])
 
   const submitPlanReview = useCallback(async ({ approved, topic }) => {
     const { generationSessionId } = useStore.getState()
@@ -149,7 +167,16 @@ export function useGenerate() {
     setPendingPlanReview(null)
 
     if (approved) {
-      updateProgress(3, { status: 'active' })
+      setProgress([
+        { id: 0, label: STEP_LABELS[0], status: 'done' },
+        { id: 1, label: STEP_LABELS[1], status: 'done' },
+        { id: 2, label: STEP_LABELS[2], status: 'done' },
+        { id: 3, label: STEP_LABELS[3], status: 'active' },
+        { id: 4, label: STEP_LABELS[4], status: 'pending' },
+      ])
+    } else {
+      resetProgress()
+      setProgress(buildInitialProgress(0))
     }
 
     try {
@@ -163,7 +190,7 @@ export function useGenerate() {
     } finally {
       setIsGenerating(false)
     }
-  }, [runRequest, setIsGenerating, setPendingPlanReview, updateProgress])
+  }, [resetProgress, runRequest, setIsGenerating, setPendingPlanReview, setProgress])
 
   return { generate, submitPlanReview, error, stepLabels: STEP_LABELS }
 }
