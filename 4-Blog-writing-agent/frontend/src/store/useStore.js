@@ -41,6 +41,12 @@ const useStore = create((set) => ({
   generatedBlog: null,
   setGeneratedBlog: (blog) => set({ generatedBlog: blog }),
 
+  pendingPlanReview: null,
+  setPendingPlanReview: (review) => set({ pendingPlanReview: review }),
+
+  generationSessionId: null,
+  setGenerationSessionId: (sessionId) => set({ generationSessionId: sessionId }),
+
   // History drawer
   drawerBlog: null,
   setDrawerBlog: (blog) => set({ drawerBlog: blog }),

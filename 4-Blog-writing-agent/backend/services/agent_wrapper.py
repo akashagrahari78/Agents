@@ -1,15 +1,20 @@
 """
-Wrapper script for the LangGraph blog-writing agent.
-It imports and runs the real root main.py workflow, emits simple step events
-to stdout, and finally prints a RESULT JSON object for the Node backend.
+Session-based wrapper for the LangGraph blog-writing agent.
+
+It starts the graph, emits progress events, pauses on LangGraph interrupts for
+human review, and can resume from stdin commands without losing graph state.
 """
 import json
 import os
 import re
 import sys
+import uuid
 from datetime import date
 
 from dotenv import load_dotenv
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.graph import END, START, StateGraph
+from langgraph.types import Command
 
 
 AGENT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -20,8 +25,12 @@ load_dotenv(os.path.join(AGENT_DIR, "..", ".env"))
 sys.path.insert(0, AGENT_DIR)
 
 
+def emit(prefix, payload):
+    print(f"{prefix}:{json.dumps(payload)}", flush=True)
+
+
 def emit_step(index, status):
-    print(f'STEP:{json.dumps({"index": index, "status": status})}', flush=True)
+    emit("STEP", {"index": index, "status": status})
 
 
 def build_sections(plan, final_markdown):
@@ -56,40 +65,95 @@ def build_sections(plan, final_markdown):
     return sections
 
 
-def main():
+def parse_payload():
     raw_payload = sys.argv[1] if len(sys.argv) > 1 else ""
-    payload = {}
+    if not raw_payload:
+        return {}
 
-    if raw_payload:
-        try:
-            payload = json.loads(raw_payload)
-        except json.JSONDecodeError:
-            payload = {"topic": raw_payload}
+    try:
+        return json.loads(raw_payload)
+    except json.JSONDecodeError:
+        return {"topic": raw_payload}
 
+
+def build_input_state(payload, default_model_by_provider):
     topic = (payload.get("topic") or "AI in 2026").strip()
     llm_provider = (payload.get("llmProvider") or "groq").strip()
-    llm_model = (payload.get("llmModel") or "").strip()
-    audience = (payload.get("audience") or "developers").strip()
-    tone = (payload.get("tone") or "professional").strip()
-    target_word_count = int(payload.get("targetWordCount") or 2000)
-    include_code = bool(payload.get("includeCode", True))
-    include_citations = bool(payload.get("includeCitations", True))
-    include_images = bool(payload.get("includeImages", False))
+    llm_model = (payload.get("llmModel") or default_model_by_provider.get(llm_provider, "")).strip()
 
-    from langgraph.graph import START, END, StateGraph
+    return {
+        "topic": topic,
+        "llm_provider": llm_provider,
+        "llm_model": llm_model,
+        "audience": (payload.get("audience") or "developers").strip(),
+        "tone": (payload.get("tone") or "professional").strip(),
+        "target_word_count": int(payload.get("targetWordCount") or 2000),
+        "include_code": bool(payload.get("includeCode", True)),
+        "include_citations": bool(payload.get("includeCitations", True)),
+        "include_images": bool(payload.get("includeImages", False)),
+        "mode": "",
+        "needs_research": False,
+        "queries": [],
+        "evidence": [],
+        "plan": None,
+        "plan_approved": False,
+        "as_of": date.today().isoformat(),
+        "recency_days": 7,
+        "sections": [],
+        "merged_md": "",
+        "md_with_placeholders": "",
+        "image_specs": [],
+        "final": "",
+    }
+
+
+def serialize_final_result(out, payload, default_model_by_provider):
+    values = out.value if hasattr(out, "value") else out
+    plan = values.get("plan")
+    final_markdown = values.get("final", "")
+    llm_provider = (payload.get("llmProvider") or "groq").strip()
+    llm_model = (payload.get("llmModel") or default_model_by_provider.get(llm_provider, "")).strip()
+
+    return {
+        "topic": payload.get("topic", ""),
+        "mode": values.get("mode"),
+        "llmProvider": llm_provider,
+        "llmModel": llm_model,
+        "audience": payload.get("audience", "developers"),
+        "tone": payload.get("tone", "professional"),
+        "targetWordCount": int(payload.get("targetWordCount") or 2000),
+        "includeCode": bool(payload.get("includeCode", True)),
+        "includeCitations": bool(payload.get("includeCitations", True)),
+        "includeImages": bool(payload.get("includeImages", False)),
+        "plan": plan.model_dump() if plan else None,
+        "sections": build_sections(plan, final_markdown),
+        "finalMarkdown": final_markdown,
+        "imageSpecs": values.get("image_specs", []),
+        "wordCount": len(final_markdown.split()),
+    }
+
+
+def build_workflow_with_progress():
     from main import (
         BlogState,
         DEFAULT_MODEL_BY_PROVIDER,
         configure_llm,
+        dispatch_workers_node,
+        fanout,
         next_route,
-        router_node,
-        research_node,
         orchestrator_node,
-        worker_node,
         reducer_subgraph,
+        research_node,
+        review_plan_node,
+        route_after_plan_review,
+        router_node,
+        worker_node,
     )
 
-    configure_llm(llm_provider, llm_model or DEFAULT_MODEL_BY_PROVIDER.get(llm_provider, ""))
+    payload = parse_payload()
+    llm_provider = (payload.get("llmProvider") or "groq").strip()
+    llm_model = (payload.get("llmModel") or DEFAULT_MODEL_BY_PROVIDER.get(llm_provider, "")).strip()
+    configure_llm(llm_provider, llm_model)
 
     def router_with_progress(state):
         emit_step(0, "active")
@@ -109,11 +173,12 @@ def main():
         emit_step(2, "done")
         return result
 
-    def fanout_with_progress(state):
-        emit_step(3, "active")
-        from main import fanout
+    def review_with_progress(state):
+        return review_plan_node(state)
 
-        return fanout(state)
+    def dispatch_workers_with_progress(state):
+        emit_step(3, "active")
+        return dispatch_workers_node(state)
 
     def worker_with_progress(payload):
         return worker_node(payload)
@@ -129,67 +194,91 @@ def main():
     graph.add_node("router", router_with_progress)
     graph.add_node("research", research_with_progress)
     graph.add_node("orchestrator", orchestrator_with_progress)
+    graph.add_node("review_plan", review_with_progress)
+    graph.add_node("dispatch_workers", dispatch_workers_with_progress)
     graph.add_node("worker", worker_with_progress)
     graph.add_node("reducer", reducer_with_progress)
 
     graph.add_edge(START, "router")
     graph.add_conditional_edges("router", next_route, {"research": "research", "orchestrator": "orchestrator"})
     graph.add_edge("research", "orchestrator")
-    graph.add_conditional_edges("orchestrator", fanout_with_progress, ["worker"])
+    graph.add_edge("orchestrator", "review_plan")
+    graph.add_conditional_edges("review_plan", route_after_plan_review, {"dispatch_workers": "dispatch_workers", "router": "router"})
+    graph.add_conditional_edges("dispatch_workers", fanout, ["worker"])
     graph.add_edge("worker", "reducer")
     graph.add_edge("reducer", END)
 
-    workflow = graph.compile()
+    workflow = graph.compile(checkpointer=InMemorySaver())
+    return payload, DEFAULT_MODEL_BY_PROVIDER, workflow
 
-    out = workflow.invoke(
-        {
-            "topic": topic,
-            "llm_provider": llm_provider,
-            "llm_model": llm_model or DEFAULT_MODEL_BY_PROVIDER.get(llm_provider, ""),
-            "audience": audience,
-            "tone": tone,
-            "target_word_count": target_word_count,
-            "include_code": include_code,
-            "include_citations": include_citations,
-            "include_images": include_images,
-            "mode": "",
-            "needs_research": False,
-            "queries": [],
-            "evidence": [],
-            "plan": None,
-            "as_of": date.today().isoformat(),
-            "recency_days": 7,
-            "sections": [],
-            "merged_md": "",
-            "md_with_placeholders": "",
-            "image_specs": [],
-            "final": "",
-        }
+
+def run_until_pause_or_complete(workflow, command_or_input, config, payload, default_model_by_provider):
+    out = workflow.invoke(command_or_input, config=config)
+    if hasattr(out, "interrupts"):
+        interrupts = out.interrupts or ()
+    elif isinstance(out, dict):
+        interrupts = out.get("__interrupt__", ())
+    else:
+        interrupts = ()
+
+    if interrupts:
+        interrupt_value = interrupts[0].value
+        emit(
+            "INTERRUPT",
+            {
+                "threadId": config["configurable"]["thread_id"],
+                "value": interrupt_value,
+            },
+        )
+        return "interrupted"
+
+    emit("RESULT", serialize_final_result(out, payload, default_model_by_provider))
+    return "completed"
+
+
+def main():
+    payload, default_model_by_provider, workflow = build_workflow_with_progress()
+    initial_state = build_input_state(payload, default_model_by_provider)
+    thread_id = payload.get("threadId") or payload.get("sessionId") or str(uuid.uuid4())
+    config = {"configurable": {"thread_id": thread_id}}
+
+    status = run_until_pause_or_complete(
+        workflow,
+        initial_state,
+        config,
+        payload,
+        default_model_by_provider,
     )
 
-    plan = out.get("plan")
-    final_markdown = out.get("final", "")
-    sections = build_sections(plan, final_markdown)
+    if status == "completed":
+        return
 
-    result = {
-        "topic": topic,
-        "mode": out.get("mode"),
-        "llmProvider": llm_provider,
-        "llmModel": llm_model or DEFAULT_MODEL_BY_PROVIDER.get(llm_provider, ""),
-        "audience": audience,
-        "tone": tone,
-        "targetWordCount": target_word_count,
-        "includeCode": include_code,
-        "includeCitations": include_citations,
-        "includeImages": include_images,
-        "plan": plan.model_dump() if plan else None,
-        "sections": sections,
-        "finalMarkdown": final_markdown,
-        "imageSpecs": out.get("image_specs", []),
-        "wordCount": len(final_markdown.split()),
-    }
+    for line in sys.stdin:
+        raw = line.strip()
+        if not raw:
+            continue
 
-    print(f"RESULT:{json.dumps(result)}", flush=True)
+        try:
+            command = json.loads(raw)
+        except json.JSONDecodeError:
+            emit("ERROR", {"message": "Malformed resume payload"})
+            continue
+
+        action = command.get("action")
+        if action == "resume":
+            status = run_until_pause_or_complete(
+                workflow,
+                Command(resume={"approved": bool(command.get("approved"))}),
+                config,
+                payload,
+                default_model_by_provider,
+            )
+            if status == "completed":
+                return
+        elif action == "stop":
+            return
+        else:
+            emit("ERROR", {"message": f"Unknown action: {action}"})
 
 
 if __name__ == "__main__":

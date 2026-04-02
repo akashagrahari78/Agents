@@ -30,6 +30,19 @@ export default function MarkdownViewer({ content, animate = true }) {
               h1: (props) => <HeadingRenderer level={1} {...props} />,
               h2: (props) => <HeadingRenderer level={2} {...props} />,
               h3: (props) => <HeadingRenderer level={3} {...props} />,
+              a({ href, children, ...props }) {
+                return (
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="markdown-source-link"
+                    {...props}
+                  >
+                    {children}
+                  </a>
+                )
+              },
               code({ inline, className, children, ...props }) {
                 return inline ? (
                   <code className={className} {...props}>{children}</code>

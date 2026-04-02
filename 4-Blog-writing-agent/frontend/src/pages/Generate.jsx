@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { HiOutlineClipboardCopy, HiOutlineDownload, HiOutlineDocumentDownload, HiOutlinePencil } from 'react-icons/hi'
+import { HiOutlineClipboardCopy, HiOutlineDownload, HiOutlineDocumentDownload, HiOutlinePencil, HiOutlineSparkles } from 'react-icons/hi'
 import ProgressTracker from '../components/ProgressTracker'
 import MarkdownViewer from '../components/MarkdownViewer'
 import { useGenerate } from '../hooks/useGenerate'
@@ -48,8 +48,8 @@ export default function Generate() {
   const [placeholderIndex, setPlaceholderIndex] = useState(0)
   const [copied, setCopied] = useState(false)
 
-  const { generate, error } = useGenerate()
-  const { isGenerating, progress, generatedBlog, editMode, toggleEditMode, setEditMode } = useStore()
+  const { generate, submitPlanReview, error } = useGenerate()
+  const { isGenerating, progress, generatedBlog, pendingPlanReview, editMode, toggleEditMode, setEditMode } = useStore()
   const [editContent, setEditContent] = useState('')
   const textareaRef = useRef(null)
   const exportPreviewRef = useRef(null)
@@ -76,6 +76,13 @@ export default function Generate() {
       includeCode,
       includeCitations,
       includeImages,
+    })
+  }
+
+  const handlePlanDecision = (approved) => {
+    submitPlanReview({
+      approved,
+      topic: topic.trim(),
     })
   }
 
@@ -156,6 +163,11 @@ export default function Generate() {
   const blogContent = editMode ? editContent : generatedBlog?.finalMarkdown
   const wc = wordCount(blogContent || '')
   const activeStep = progress.find((step) => step.status === 'active')
+  const reviewPlan = pendingPlanReview?.plan
+  const shouldShowGenerationProgress = progress.some(
+    (step) => step.id >= 3 && step.status !== 'pending'
+  )
+  const planningStage = isGenerating && !generatedBlog && !pendingPlanReview && !shouldShowGenerationProgress
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="generate-container">
@@ -259,8 +271,8 @@ export default function Generate() {
             </div>
 
             <button
-              onClick={handleGenerate} disabled={isGenerating || !topic.trim()}
-              className={`btn-primary generate-btn ${isGenerating || !topic.trim() ? 'btn-secondary' : ''}`}
+              onClick={handleGenerate} disabled={isGenerating || !topic.trim() || Boolean(pendingPlanReview)}
+              className={`btn-primary generate-btn ${isGenerating || !topic.trim() || pendingPlanReview ? 'btn-secondary' : ''}`}
             >
               {isGenerating ? 'Generating...' : 'Generate Blog'}
             </button>
@@ -296,7 +308,7 @@ export default function Generate() {
             </motion.div>
           )}
 
-          {isGenerating && progress.length > 0 && (
+          {isGenerating && progress.length > 0 && shouldShowGenerationProgress && (
             <div className="section-card">
               <h3 className="input-label" style={{ fontSize: '0.875rem' }}>Generation Progress</h3>
               {activeStep && (
@@ -311,6 +323,96 @@ export default function Generate() {
               )}
               <ProgressTracker steps={progress} />
             </div>
+          )}
+
+          {planningStage && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="section-card planning-state-card"
+            >
+              <div className="planning-state-header">
+                <div className="planning-state-icon">
+                  <HiOutlineSparkles size={24} />
+                </div>
+                <div>
+                  <h3 className="planning-state-title">Planning Your Blog</h3>
+                  <p className="planning-state-subtitle">
+                    The agent is building the outline and preparing the structure before it starts writing sections.
+                  </p>
+                </div>
+              </div>
+
+              <div className="planning-state-highlight">
+                <div className="planning-state-label">Current activity</div>
+                <div className="planning-state-value">
+                  {activeStep?.label || 'Generating outline and planning sections'}
+                </div>
+              </div>
+
+              <div className="planning-skeleton-list">
+                {[1, 2, 3, 4].map((item) => (
+                  <div key={item} className="planning-skeleton-item">
+                    <div className="planning-skeleton-line planning-skeleton-line-title" />
+                    <div className="planning-skeleton-line planning-skeleton-line-body" />
+                    <div className="planning-skeleton-line planning-skeleton-line-body short" />
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          {pendingPlanReview && reviewPlan && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="section-card" style={{ padding: '2rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                <div>
+                  <h3 className="input-label" style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>Review Plan Before Drafting</h3>
+                  <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: '0.92rem', lineHeight: 1.6 }}>
+                    LangGraph paused after the orchestrator step. Approve this outline to continue to section writing, or reject it to loop back and generate a fresh plan.
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <button onClick={() => handlePlanDecision(false)} disabled={isGenerating} className="action-btn" style={{ backgroundColor: 'var(--color-bg-elevated)', color: 'var(--color-text-primary)' }}>
+                    No, regenerate plan
+                  </button>
+                  <button onClick={() => handlePlanDecision(true)} disabled={isGenerating} className="btn-primary" style={{ minWidth: '140px' }}>
+                    Yes, continue
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gap: '1rem' }}>
+                <div style={{ padding: '1rem', borderRadius: '1rem', backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)' }}>
+                  <div style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.4rem', color: 'var(--color-text-primary)' }}>
+                    {reviewPlan.blog_title}
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <span className="word-badge">{reviewPlan.audience}</span>
+                    <span className="word-badge">{reviewPlan.tone}</span>
+                    <span className="word-badge">{reviewPlan.blog_kind?.replace('_', ' ')}</span>
+                  </div>
+                </div>
+
+                {Array.isArray(reviewPlan.tasks) && reviewPlan.tasks.map((task) => (
+                  <div key={task.id} style={{ padding: '1rem', borderRadius: '1rem', backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                      <div style={{ fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                        {task.id}. {task.title}
+                      </div>
+                      <span className="word-badge">{task.target_words} words</span>
+                    </div>
+                    <p style={{ margin: '0 0 0.8rem 0', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+                      {task.goal}
+                    </p>
+                    <ul style={{ margin: 0, paddingLeft: '1.2rem', color: 'var(--color-text-muted)', lineHeight: 1.7 }}>
+                      {Array.isArray(task.bullets) && task.bullets.map((bullet, index) => (
+                        <li key={`${task.id}-${index}`}>{bullet}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
           )}
 
           {generatedBlog && (
@@ -331,7 +433,7 @@ export default function Generate() {
             </div>
           )}
 
-          {!isGenerating && !generatedBlog && (
+          {!isGenerating && !generatedBlog && !pendingPlanReview && (
             <div className="empty-state">
               <div style={{ textAlign: 'center' }}>
                 <div className="empty-box"><HiOutlinePencil size={32} color="var(--color-text-subtle)" /></div>

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { HiOutlineTrash } from 'react-icons/hi'
 import { wordCount, formatDate, truncate, markdownToText } from '../utils/helpers'
@@ -10,19 +10,39 @@ const modeColors = {
 }
 
 export default function BlogCard({ blog, onDelete }) {
+  const navigate = useNavigate()
   const plainText = markdownToText(blog.finalMarkdown || '')
   const wc = wordCount(plainText)
   const modeStyle = modeColors[blog.mode] || modeColors.hybrid
+  const blogId = blog._id || blog.id
+
   const handleDeleteClick = (e) => {
     e.preventDefault()
     e.stopPropagation()
     onDelete()
   }
 
+  const handleOpen = () => {
+    if (!blogId) return
+    navigate(`/blog/${blogId}`)
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      handleOpen()
+    }
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-      className="feature-card" style={{ padding: '1.2rem', display: 'flex', flexDirection: 'column' }}
+      className="feature-card"
+      style={{ padding: '1.2rem', display: 'flex', flexDirection: 'column', cursor: 'pointer' }}
+      role="button"
+      tabIndex={0}
+      onClick={handleOpen}
+      onKeyDown={handleKeyDown}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
         <span style={{ fontSize: '0.7rem', fontWeight: 600, padding: '0.25rem 0.6rem', borderRadius: '99px', textTransform: 'uppercase', backgroundColor: modeStyle.bg, color: modeStyle.color, border: `1px solid ${modeStyle.border}` }}>
@@ -47,14 +67,14 @@ export default function BlogCard({ blog, onDelete }) {
         </button>
       </div>
 
-      <Link to={`/blog/${blog._id || blog.id}`} style={{ flex: 1 }}>
+      <div style={{ flex: 1 }}>
         <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem', lineHeight: 1.4, color: 'var(--color-text-primary)' }}>
           {truncate(blog.topic || blog.plan?.blog_title, 60)}
         </h3>
         <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '1rem', lineHeight: 1.5 }}>
           {truncate(plainText, 120)}
         </p>
-      </Link>
+      </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--color-border)', fontSize: '0.75rem', color: 'var(--color-text-subtle)' }}>
         <span>{formatDate(blog.createdAt)}</span>

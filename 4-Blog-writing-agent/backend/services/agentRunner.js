@@ -1,5 +1,9 @@
 const { spawn } = require('child_process');
+const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+
+const activeSessions = new Map();
 
 function buildFriendlyAgentError(rawMessage) {
   const message = rawMessage || 'Generation failed';
@@ -16,8 +20,7 @@ function buildFriendlyAgentError(rawMessage) {
     return error;
   }
 
-  const quotaMatch = message.match(/Need more tokens\?/i);
-  if (quotaMatch) {
+  if (message.match(/Need more tokens\?/i)) {
     const friendlyMessage = 'The Groq daily token quota has been exhausted for this project. Please wait and try again later.';
     const error = new Error(friendlyMessage);
     error.userMessage = friendlyMessage;
@@ -29,93 +32,173 @@ function buildFriendlyAgentError(rawMessage) {
   return error;
 }
 
-/**
- * Runs the Python LangGraph blog-writing agent and streams progress steps via a callback.
- * 
- * @param {Object} params - { topic, mode, audience, tone, targetWordCount, includeCode, includeCitations, includeImages }
- * @param {Function} onStep - callback(stepIndex, status) for progress updates
- * @returns {Promise<Object>} - The generated blog data
- */
-async function runAgent(params, onStep) {
-  const { topic, llmProvider, llmModel } = params;
+function getPythonCommand() {
+  const repoRoot = path.resolve(__dirname, '..', '..', '..');
+  const workspaceVenvPython = process.platform === 'win32'
+    ? path.join(repoRoot, 'venv', 'Scripts', 'python.exe')
+    : path.join(repoRoot, 'venv', 'bin', 'python');
 
-  return new Promise((resolve, reject) => {
-    // Step 0: Routing
-    onStep(0, 'active');
+  if (fs.existsSync(workspaceVenvPython)) {
+    return workspaceVenvPython;
+  }
 
-    // backend/services/ -> backend/ -> 4-Blog-writing-agent/  (go up 2 levels)
-    const agentScriptDir = path.resolve(__dirname, '..', '..');
-    const wrapperScript = path.resolve(__dirname, 'agent_wrapper.py');
-    const pythonCommand = process.platform === 'win32' ? 'py' : 'python3';
-    const provider = llmProvider || 'groq';
-    const model = llmModel || '';
-    const payload = JSON.stringify({
-      ...params,
-      topic,
-      llmProvider: provider,
-      llmModel: model,
-    });
-    const pythonArgs = [wrapperScript, payload];
+  return process.platform === 'win32' ? 'py' : 'python3';
+}
 
-    const child = spawn(pythonCommand, pythonArgs, {
-      cwd: agentScriptDir,
-      env: {
-        ...process.env,
-        PYTHONIOENCODING: 'utf-8',
-      },
-    });
+function settlePending(session, resolver) {
+  if (!session.pending) return;
+  const pending = session.pending;
+  session.pending = null;
+  resolver(pending);
+}
 
-    let stdout = '';
-    let stderr = '';
+function cleanupSession(sessionId) {
+  const session = activeSessions.get(sessionId);
+  if (!session) return;
+  activeSessions.delete(sessionId);
+}
 
-    child.stdout.on('data', (data) => {
-      const text = data.toString();
-      stdout += text;
+function handleStdout(sessionId, chunk) {
+  const session = activeSessions.get(sessionId);
+  if (!session) return;
 
-      // Parse step updates from stdout
-      const lines = text.split('\n');
-      for (const line of lines) {
-        if (line.startsWith('STEP:')) {
-          try {
-            const stepData = JSON.parse(line.slice(5));
-            onStep(stepData.index, stepData.status);
-          } catch (e) {
-            // ignore
-          }
-        }
-      }
-    });
+  session.stdoutBuffer += chunk;
+  const lines = session.stdoutBuffer.split(/\r?\n/);
+  session.stdoutBuffer = lines.pop() || '';
 
-    child.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
+  for (const line of lines) {
+    if (!line) continue;
 
-    child.on('close', (code) => {
-      if (code !== 0) {
-        reject(buildFriendlyAgentError(`Agent exited with code ${code}: ${stderr}`));
-        return;
-      }
-
-      // Find the JSON result in stdout
+    if (line.startsWith('STEP:')) {
       try {
-        const jsonMatch = stdout.match(/RESULT:(.*)/s);
-        if (jsonMatch) {
-          const result = JSON.parse(jsonMatch[1]);
-          resolve(result);
-        } else {
-          reject(buildFriendlyAgentError('No result found in agent output'));
-        }
-      } catch (e) {
-        reject(buildFriendlyAgentError(`Failed to parse agent output: ${e.message}`));
+        const step = JSON.parse(line.slice(5));
+        session.onEvent?.({ type: 'step', stepIndex: step.index, status: step.status });
+      } catch (_) {
+        // ignore malformed step payloads
       }
-    });
+      continue;
+    }
 
-    child.on('error', (err) => {
-      reject(buildFriendlyAgentError(err.message || 'Failed to start agent process'));
-    });
+    if (line.startsWith('INTERRUPT:')) {
+      try {
+        const interrupt = JSON.parse(line.slice(10));
+        settlePending(session, ({ resolve }) => resolve({ type: 'interrupt', ...interrupt }));
+      } catch (error) {
+        settlePending(session, ({ reject }) => reject(buildFriendlyAgentError(error.message)));
+      }
+      continue;
+    }
+
+    if (line.startsWith('RESULT:')) {
+      try {
+        const result = JSON.parse(line.slice(7));
+        settlePending(session, ({ resolve }) => resolve({ type: 'complete', blog: result }));
+      } catch (error) {
+        settlePending(session, ({ reject }) => reject(buildFriendlyAgentError(error.message)));
+      }
+      continue;
+    }
+
+    if (line.startsWith('ERROR:')) {
+      try {
+        const errorPayload = JSON.parse(line.slice(6));
+        settlePending(session, ({ reject }) => reject(buildFriendlyAgentError(errorPayload.message)));
+      } catch (error) {
+        settlePending(session, ({ reject }) => reject(buildFriendlyAgentError(error.message)));
+      }
+    }
+  }
+}
+
+function createSession(params, onEvent, pending = null) {
+  const sessionId = params.sessionId || crypto.randomUUID();
+  const agentScriptDir = path.resolve(__dirname, '..', '..');
+  const wrapperScript = path.resolve(__dirname, 'agent_wrapper.py');
+  const payload = JSON.stringify({
+    ...params,
+    sessionId,
   });
+
+  const child = spawn(getPythonCommand(), [wrapperScript, payload], {
+    cwd: agentScriptDir,
+    env: {
+      ...process.env,
+      PYTHONIOENCODING: 'utf-8',
+    },
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+
+  const session = {
+    id: sessionId,
+    child,
+    stderr: '',
+    stdoutBuffer: '',
+    onEvent,
+    pending,
+  };
+
+  activeSessions.set(sessionId, session);
+
+  child.stdout.on('data', (data) => handleStdout(sessionId, data.toString()));
+  child.stderr.on('data', (data) => {
+    const current = activeSessions.get(sessionId);
+    if (current) current.stderr += data.toString();
+  });
+
+  child.on('error', (err) => {
+    const current = activeSessions.get(sessionId);
+    if (!current) return;
+    settlePending(current, ({ reject }) => reject(buildFriendlyAgentError(err.message || 'Failed to start agent process')));
+    cleanupSession(sessionId);
+  });
+
+  child.on('close', (code) => {
+    const current = activeSessions.get(sessionId);
+    if (!current) return;
+
+    if (code !== 0) {
+      settlePending(current, ({ reject }) => reject(buildFriendlyAgentError(`Agent exited with code ${code}: ${current.stderr}`)));
+    }
+
+    cleanupSession(sessionId);
+  });
+
+  return session;
+}
+
+function waitForSession(session, onEvent) {
+  session.onEvent = onEvent;
+  return new Promise((resolve, reject) => {
+    session.pending = { resolve, reject };
+  });
+}
+
+async function runAgent(params, onEvent) {
+  return new Promise((resolve, reject) => {
+    createSession(params, onEvent, { resolve, reject });
+  });
+}
+
+async function resumeAgent(sessionId, approved, onEvent) {
+  const session = activeSessions.get(sessionId);
+  if (!session) {
+    throw buildFriendlyAgentError('Plan review session expired. Please generate again.');
+  }
+
+  const responsePromise = waitForSession(session, onEvent);
+  session.child.stdin.write(`${JSON.stringify({ action: 'resume', approved })}\n`);
+  return responsePromise;
+}
+
+function closeAgentSession(sessionId) {
+  const session = activeSessions.get(sessionId);
+  if (!session) return;
+  session.child.stdin.write(`${JSON.stringify({ action: 'stop' })}\n`);
+  cleanupSession(sessionId);
 }
 
 module.exports = {
   runAgent,
+  resumeAgent,
+  closeAgentSession,
 };

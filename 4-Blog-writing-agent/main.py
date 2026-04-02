@@ -1,15 +1,14 @@
 from langgraph.graph import StateGraph, START, END
 from typing import TypedDict, List, Annotated, Literal, Optional
+from math import floor
 from pydantic import BaseModel, Field
-from langchain_groq import ChatGroq
-from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
 from langchain_tavily import TavilySearch
 from langgraph.types import Send
 from langchain.messages import HumanMessage, AIMessage, SystemMessage
 import operator,os
 from pathlib import Path
 from datetime import date, timedelta
+from langgraph.types import interrupt
 from dotenv import load_dotenv
 import sys
 load_dotenv()
@@ -148,6 +147,63 @@ class GlobalImagePlan(BaseModel):
     images: List[ImageSpec] = Field(default_factory=list)
 
 
+def desired_section_range(total_words: int) -> tuple[int, int]:
+    if total_words <= 700:
+        return (3, 4)
+    if total_words <= 1200:
+        return (4, 5)
+    if total_words <= 2200:
+        return (5, 6)
+    if total_words <= 3200:
+        return (6, 7)
+    return (7, 8)
+
+
+def rebalance_plan_to_budget(plan: Plan, total_words: int) -> Plan:
+    if not plan.tasks:
+        return plan
+
+    min_sections, max_sections = desired_section_range(total_words)
+    trimmed_tasks = plan.tasks[:max_sections]
+
+    if len(trimmed_tasks) < min_sections:
+        min_sections = len(trimmed_tasks)
+
+    n = max(1, len(trimmed_tasks))
+
+    # Keep planned section targets slightly below the user budget so the final
+    # draft can still vary a bit and remain within the requested upper bound.
+    planned_total = max(total_words - 80, floor(total_words * 0.88))
+    per_section = max(90, floor(planned_total / n))
+    max_per_section = max(140, floor((total_words + 120) / n))
+
+    rebalanced_tasks = []
+    remaining = planned_total
+
+    for index, task in enumerate(trimmed_tasks):
+        sections_left = n - index
+        current_target = min(per_section, max_per_section)
+
+        if sections_left == 1:
+            current_target = remaining
+        else:
+            min_remaining_after = max(70 * (sections_left - 1), 0)
+            current_target = min(current_target, remaining - min_remaining_after)
+
+        current_target = max(70, current_target)
+        remaining -= current_target
+
+        rebalanced_tasks.append(
+            task.model_copy(
+                update={
+                    "target_words": current_target,
+                }
+            )
+        )
+
+    return plan.model_copy(update={"tasks": rebalanced_tasks})
+
+
 # --------------------------------------------state of graph----------------------------------
 
 class BlogState(TypedDict):
@@ -167,6 +223,7 @@ class BlogState(TypedDict):
     queries: List[str]
     evidence: List[EvidenceItem]
     plan: Optional[Plan]
+    plan_approved: bool
 
     # workers
     sections: Annotated[List[tuple[int, str]], operator.add]  # (task_id, section_md)
@@ -284,11 +341,14 @@ ORCH_SYSTEM = """You are a senior technical writer and developer advocate.
 Your job is to produce a highly actionable outline for a technical blog post.
 
 Hard requirements:
-- Create 5–9 sections (tasks) suitable for the topic and audience.
+- Create a section count that fits the requested total length.
+  - For short blogs (~500-700 words), prefer 3-4 sections.
+  - For medium blogs (~800-1500 words), prefer 4-5 sections.
+  - For long blogs, you may use more sections.
 - Each task must include:
   1) goal (1 sentence)
   2) 3–6 bullets that are concrete, specific, and non-overlapping
-  3) target word count (120–550)
+  3) target word count that fits the total budget
 
 Quality bar:
 - Assume the reader is a developer; use correct terminology.
@@ -351,7 +411,43 @@ def orchestrator_node(state : BlogState) -> dict:
             )
     ])
 
+    plan = rebalance_plan_to_budget(plan, target_word_count)
+
     return {"plan" : plan}
+
+
+def review_plan_node(state: BlogState) -> dict:
+    plan = state.get("plan")
+    if not plan:
+        raise ValueError("Cannot review a plan before it exists.")
+
+    review_payload = {
+        "kind": "plan_review",
+        "message": "Review the proposed blog plan before drafting begins.",
+        "topic": state.get("topic", ""),
+        "mode": state.get("mode", "closed_book"),
+        "plan": plan.model_dump() if isinstance(plan, Plan) else plan,
+    }
+
+    decision = interrupt(review_payload)
+
+    approved = False
+    if isinstance(decision, dict):
+        approved = bool(decision.get("approved"))
+    else:
+        approved = bool(decision)
+
+    return {"plan_approved": approved}
+
+
+def route_after_plan_review(state: BlogState):
+    if state.get("plan_approved"):
+        return "dispatch_workers"
+    return "router"
+
+
+def dispatch_workers_node(state: BlogState) -> dict:
+    return {}
 
 
 
@@ -365,6 +461,7 @@ def fanout(state: BlogState):
             "evidence": [e.model_dump() for e in state.get("evidence", [])],
             "include_code": state.get("include_code", True),
             "include_citations": state.get("include_citations", True),
+            "target_word_count": state.get("target_word_count", 2000),
         })
         for task in state["plan"].tasks
     ]
@@ -376,7 +473,9 @@ Write ONE section of a technical blog post in Markdown.
 
 Hard constraints:
 - Follow the provided Goal and cover ALL Bullets in order (do not skip or merge bullets).
-- Stay close to Target words (±15%).
+- Stay close to Target words.
+- Do not exceed the section target by more than 10%.
+- If the section can be completed clearly in fewer words, prefer fewer words over padding.
 - Output ONLY the section content in Markdown (no blog title H1, no extra commentary).
 - Start with a '## <Section Title>' heading.
 
@@ -434,6 +533,7 @@ def worker_node(payload: dict) -> dict:
                     f"Mode: {mode}\n\n"
                     f"Global include_code preference: {payload.get('include_code', True)}\n"
                     f"Global include_citations preference: {payload.get('include_citations', True)}\n\n"
+                    f"Requested total blog length: about {payload.get('target_word_count', 2000)} words\n"
                     f"Section title: {task.title}\n"
                     f"Goal: {task.goal}\n"
                     f"Target words: {task.target_words}\n"
@@ -511,6 +611,40 @@ def decide_images(state: BlogState) -> dict:
     }
 
 
+def enforce_word_budget(markdown_text: str, target_word_count: int) -> str:
+    if not markdown_text:
+        return markdown_text
+
+    current_words = len(markdown_text.split())
+    max_allowed = target_word_count + 300
+
+    if current_words <= max_allowed:
+        return markdown_text
+
+    compressed = llm.invoke(
+        [
+            SystemMessage(
+                content=(
+                    "You are editing a Markdown technical blog to fit a strict length budget.\n"
+                    "Preserve the title, headings, factual accuracy, citations, and overall structure.\n"
+                    "Cut repetition, shorten examples, and tighten prose.\n"
+                    "Return only the revised Markdown."
+                )
+            ),
+            HumanMessage(
+                content=(
+                    f"Target length: about {target_word_count} words\n"
+                    f"Hard maximum: {max_allowed} words\n"
+                    f"Current length: {current_words} words\n\n"
+                    f"{markdown_text}"
+                )
+            ),
+        ]
+    ).content.strip()
+
+    return compressed or markdown_text
+
+
 
 def _gemini_generate_image_bytes(prompt: str) -> bytes:
     """
@@ -573,6 +707,7 @@ def generate_and_place_images(state: BlogState) -> dict:
 
     # If no images requested, just write merged markdown
     if not image_specs:
+        md = enforce_word_budget(md, state.get("target_word_count", 2000))
         filename = f"{safe_title}.md"
         Path(filename).write_text(md, encoding="utf-8")
         return {"final": md}
@@ -604,6 +739,7 @@ def generate_and_place_images(state: BlogState) -> dict:
         img_md = f"![{spec['alt']}](images/{filename})\n*{spec['caption']}*"
         md = md.replace(placeholder, img_md)
 
+    md = enforce_word_budget(md, state.get("target_word_count", 2000))
     filename = f"{safe_title}.md"
     Path(filename).write_text(md, encoding="utf-8")
     return {"final": md}
@@ -638,23 +774,29 @@ reducer_subgraph = reducer_graph.compile()
 
 
 #-----------------------------------------------graph -----------------------------------------
-graph = StateGraph(BlogState)
-graph.add_node('router', router_node)
-graph.add_node('research', research_node)
-graph.add_node('orchestrator', orchestrator_node)
-graph.add_node('worker', worker_node)
-graph.add_node('reducer', reducer_subgraph)
+def build_workflow(checkpointer=None):
+    graph = StateGraph(BlogState)
+    graph.add_node('router', router_node)
+    graph.add_node('research', research_node)
+    graph.add_node('orchestrator', orchestrator_node)
+    graph.add_node('review_plan', review_plan_node)
+    graph.add_node('dispatch_workers', dispatch_workers_node)
+    graph.add_node('worker', worker_node)
+    graph.add_node('reducer', reducer_subgraph)
+
+    graph.add_edge(START, 'router')
+    graph.add_conditional_edges('router', next_route,  {"research": "research", "orchestrator": "orchestrator"})
+    graph.add_edge('research', 'orchestrator')
+    graph.add_edge('orchestrator', 'review_plan')
+    graph.add_conditional_edges('review_plan', route_after_plan_review, {"dispatch_workers": "dispatch_workers", "router": "router"})
+    graph.add_conditional_edges('dispatch_workers', fanout, ['worker'])
+    graph.add_edge('worker', 'reducer')
+    graph.add_edge('reducer', END)
+
+    return graph.compile(checkpointer=checkpointer)
 
 
-# -----------------------------edges--------------------------
-graph.add_edge(START, 'router')
-graph.add_conditional_edges('router', next_route,  {"research": "research", "orchestrator": "orchestrator"})
-graph.add_edge('research', 'orchestrator')
-graph.add_conditional_edges('orchestrator', fanout, ['worker'])
-graph.add_edge('worker', 'reducer')
-graph.add_edge('reducer', END)
-
-workflow = graph.compile()
+workflow = build_workflow()
 
 
 def run(topic: str, as_of: Optional[str] = None, llm_provider: Optional[str] = None, llm_model: Optional[str] = None):
@@ -679,6 +821,7 @@ def run(topic: str, as_of: Optional[str] = None, llm_provider: Optional[str] = N
             "queries": [],
             "evidence": [],
             "plan": None,
+            "plan_approved": False,
             "as_of": as_of,
             "recency_days": 7,
             "sections": [],
