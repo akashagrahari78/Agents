@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
-import axios from 'axios'
 import useStore from '../store/useStore'
+import { apiClient } from '../utils/api'
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true)
@@ -21,7 +21,7 @@ export default function Auth() {
 
     try {
       const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register'
-      const res = await axios.post(endpoint, { email, password })
+      const res = await apiClient.post(endpoint, { email, password })
       
       setAuth(res.data, res.data.token)
       navigate('/history')

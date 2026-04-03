@@ -2,8 +2,8 @@ import { motion } from 'framer-motion'
 import BlogCard from '../components/BlogCard'
 import { HiOutlineSearch, HiOutlineDocumentSearch } from 'react-icons/hi'
 import { useState, useEffect } from 'react'
-import axios from 'axios'
 import useStore from '../store/useStore'
+import { apiClient } from '../utils/api'
 
 export default function History() {
   const [history, setHistory] = useState([])
@@ -18,7 +18,7 @@ export default function History() {
     setError('')
 
     try {
-      const res = await axios.get('/api/blogs', {
+      const res = await apiClient.get('/api/blogs', {
         headers: { Authorization: `Bearer ${token}` }
       })
       setHistory(res.data)
@@ -41,7 +41,7 @@ export default function History() {
       setDeletingId(id)
       setError('')
       setHistory((prev) => prev.filter(b => b._id !== id && b.id !== id))
-      await axios.delete(`/api/blogs/${id}`, {
+      await apiClient.delete(`/api/blogs/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
     } catch (err) {

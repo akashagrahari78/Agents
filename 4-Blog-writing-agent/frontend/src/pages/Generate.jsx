@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { HiOutlineClipboardCopy, HiOutlineDownload, HiOutlineDocumentDownload, HiOutlinePencil } from 'react-icons/hi'
-import axios from 'axios'
 import ProgressTracker from '../components/ProgressTracker'
 import MarkdownViewer from '../components/MarkdownViewer'
 import { useGenerate } from '../hooks/useGenerate'
 import useStore from '../store/useStore'
 import { wordCount } from '../utils/helpers'
+import { apiClient } from '../utils/api'
 
 const EXAMPLE_TOPICS = [
   'State of Multimodal LLMs in 2026',
@@ -78,7 +78,7 @@ export default function Generate() {
       }
 
       try {
-        const res = await axios.get('/api/blogs', {
+        const res = await apiClient.get('/api/blogs', {
           headers: { Authorization: `Bearer ${token}` },
         })
 

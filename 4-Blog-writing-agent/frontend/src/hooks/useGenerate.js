@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import useStore from '../store/useStore'
+import { buildApiUrl } from '../utils/api'
 
 const STEP_LABELS = [
   'Analyzing topic and selecting the best writing mode',
@@ -80,7 +81,7 @@ export function useGenerate() {
     const headers = { 'Content-Type': 'application/json' }
     if (token) headers.Authorization = `Bearer ${token}`
 
-    const response = await fetch(url, {
+    const response = await fetch(buildApiUrl(url), {
       method: 'POST',
       headers,
       body: JSON.stringify(body),

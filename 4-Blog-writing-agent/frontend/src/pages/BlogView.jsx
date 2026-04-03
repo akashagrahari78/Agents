@@ -1,11 +1,11 @@
 import { useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
-import axios from 'axios'
 import useStore from '../store/useStore'
 import MarkdownViewer from '../components/MarkdownViewer'
 import { HiOutlineArrowLeft, HiOutlineCalendar, HiOutlineDocumentText } from 'react-icons/hi'
 import { formatDate, wordCount } from '../utils/helpers'
+import { apiClient } from '../utils/api'
 
 export default function BlogView() {
   const { id } = useParams()
@@ -16,7 +16,7 @@ export default function BlogView() {
   useEffect(() => {
     const fetchBlog = async () => {
       try {
-        const res = await axios.get('/api/blogs', {
+        const res = await apiClient.get('/api/blogs', {
           headers: { Authorization: `Bearer ${token}` }
         })
         const found = res.data.find(b => b._id === id || b.id === id)
