@@ -1,0 +1,1 @@
+we can make a mcp client on our laptop and connect it to a mcp server(it can be others gmail)
