@@ -47,13 +47,24 @@ const TechMarquee = () => (
 )
 
 const UseCases = () => (
-  <section style={{ padding: '0 1.5rem 6rem 1.5rem', maxWidth: '1000px', margin: '0 auto', textAlign: 'center', position: 'relative', zIndex: 10 }}>
-    <h2 className="section-heading" style={{ marginBottom: '3rem' }}>Perfect For Every Niche</h2>
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+  <section style={{ padding: '0 1.5rem 5rem 1.5rem', maxWidth: '1000px', margin: '0 auto', textAlign: 'center', position: 'relative', zIndex: 10 }}>
+    <h2 className="section-heading" style={{ marginBottom: '2.5rem' }}>Perfect For Every Niche</h2>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.85rem' }}>
       {['Technical Tutorials', 'Industry Reviews', 'Thought Leadership', 'Product Comparisons', 'SEO Listicles', 'Weekly Newsletters'].map((useCase) => (
-        <div key={useCase} style={{ padding: '1.25rem 1rem', borderRadius: '1rem', border: '1px solid rgba(255, 255, 255, 0.05)', backgroundColor: 'var(--color-bg-surface)', fontWeight: 600, color: '#fff', fontSize: '0.95rem', transition: 'all 0.3s', cursor: 'pointer', boxShadow: 'inset 0 1px 0 0 rgba(255,255,255,0.02)' }}
-             onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.4)'; e.currentTarget.style.transform = 'translateY(-3px)' }}
-             onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.05)'; e.currentTarget.style.transform = 'translateY(0)' }}>
+        <div key={useCase} style={{
+          padding: '1.1rem 0.9rem',
+          borderRadius: 'var(--radius-lg)',
+          border: '1.5px solid var(--color-border)',
+          backgroundColor: 'var(--color-bg-surface)',
+          fontWeight: 600,
+          color: 'var(--color-text-primary)',
+          fontSize: '0.9rem',
+          transition: 'all 0.25s',
+          cursor: 'pointer',
+          boxShadow: 'var(--shadow-sm)',
+        }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(20, 184, 166, 0.4)'; e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(20, 184, 166, 0.1)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'var(--shadow-sm)' }}>
           {useCase}
         </div>
       ))}
@@ -86,10 +97,10 @@ export default function Landing() {
 
           <motion.div variants={fadeUp} className="hero-cta">
             <Link to="/generate">
-              <button className="btn-primary" style={{ padding: '1rem 2.5rem', fontSize: '1.1rem' }}>Start Writing</button>
+              <button className="btn-primary" style={{ padding: '1rem 2.5rem', fontSize: '1.05rem' }}>Start Writing</button>
             </Link>
             <Link to="/history">
-              <button className="btn-secondary" style={{ padding: '1rem 2.5rem', fontSize: '1.1rem' }}>View Library</button>
+              <button className="btn-secondary" style={{ padding: '1rem 2.5rem', fontSize: '1.05rem' }}>View Library</button>
             </Link>
           </motion.div>
         </motion.div>
@@ -108,9 +119,9 @@ export default function Landing() {
             <div className="mockup-title">agent-workspace.tsx</div>
           </div>
           <div className="mockup-body">
-            <span style={{ color: '#c084fc' }}>&gt;</span> Initializing LangGraph agent...
+            <span style={{ color: 'var(--color-accent-primary)' }}>&gt;</span> Initializing LangGraph agent...
             <br />
-            <span style={{ color: '#c084fc' }}>&gt;</span> Topic accepted: "The Future of Multimodal LLMs in 2026"
+            <span style={{ color: 'var(--color-accent-primary)' }}>&gt;</span> Topic accepted: &quot;The Future of Multimodal LLMs in 2026&quot;
             <br />
             <span style={{ color: '#10b981' }}>✓</span> Tavily web search completed (Found 12 sources)
             <br />

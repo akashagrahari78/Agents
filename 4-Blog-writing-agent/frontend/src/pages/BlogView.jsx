@@ -31,15 +31,21 @@ export default function BlogView() {
   }, [id, token])
 
   if (loading) {
-    return <div className="generate-container flex items-center justify-center min-h-screen text-white">Loading...</div>
+    return (
+      <div className="generate-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+        <div className="vanna-bg" />
+        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.95rem' }}>Loading...</p>
+      </div>
+    )
   }
 
   if (!blog) {
     return (
-      <div className="generate-container" style={{ display: 'flex', alignItems: 'center', justifyItems: 'center', height: '100vh', justifyContent: 'center' }}>
+      <div className="generate-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+        <div className="vanna-bg" />
         <div style={{ textAlign: 'center' }}>
-          <h2>Blog not found</h2>
-          <Link to="/history" className="btn-primary" style={{ display: 'inline-block', marginTop: '1rem' }}>Back to History</Link>
+          <h2 style={{ marginBottom: '1rem', color: 'var(--color-text-primary)' }}>Blog not found</h2>
+          <Link to="/history" className="btn-primary" style={{ display: 'inline-block' }}>Back to History</Link>
         </div>
       </div>
     )
@@ -49,25 +55,29 @@ export default function BlogView() {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="generate-container">
+      <div className="vanna-bg" />
       <div className="generate-layout" style={{ display: 'block', maxWidth: '800px', margin: '0 auto' }}>
-        <Link to="/history" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-text-muted)', marginBottom: '2rem', fontSize: '0.875rem' }}>
+        <Link to="/history" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', color: 'var(--color-text-muted)', marginBottom: '1.75rem', fontSize: '0.88rem', fontWeight: 500, transition: 'color 0.2s' }}
+          onMouseEnter={e => e.currentTarget.style.color = 'var(--color-accent-primary)'}
+          onMouseLeave={e => e.currentTarget.style.color = 'var(--color-text-muted)'}
+        >
           <HiOutlineArrowLeft /> Back to Library
         </Link>
         
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
-          <span className="word-badge" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+        <div style={{ display: 'flex', gap: '0.65rem', marginBottom: '1.75rem', flexWrap: 'wrap' }}>
+          <span className="word-badge" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
             <HiOutlineCalendar /> {formatDate(blog.createdAt)}
           </span>
-          <span className="word-badge" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', backgroundColor: 'rgba(236, 72, 153, 0.1)', color: '#ec4899' }}>
+          <span className="word-badge" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', backgroundColor: 'rgba(245, 158, 11, 0.08)', color: '#d97706' }}>
             <HiOutlineDocumentText /> {wc.toLocaleString()} words
           </span>
         </div>
 
-        <h1 className="hero-title" style={{ fontSize: '3rem', marginBottom: '3rem', textAlign: 'left' }}>
+        <h1 style={{ fontSize: 'clamp(1.75rem, 4vw, 2.75rem)', fontWeight: 800, marginBottom: '2.5rem', textAlign: 'left', color: 'var(--color-text-primary)', lineHeight: 1.15 }}>
           {blog.topic || blog.plan?.blog_title || 'Untitled Blog'}
         </h1>
 
-        <div className="section-card" style={{ padding: '3rem 2rem' }}>
+        <div className="section-card" style={{ padding: 'clamp(1.5rem, 3vw, 2.5rem)' }}>
           <MarkdownViewer content={blog.finalMarkdown || ''} />
         </div>
       </div>

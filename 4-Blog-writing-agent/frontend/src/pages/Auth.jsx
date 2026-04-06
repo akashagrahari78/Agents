@@ -33,20 +33,21 @@ export default function Auth() {
   }
 
   return (
-    <div className="generate-container flex-center" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 80px)' }}>
+    <div className="generate-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 80px)' }}>
+      <div className="vanna-bg" />
       <motion.div 
         initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
         className="auth-card"
       >
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div className="nav-logo" style={{ width: '3rem', height: '3rem', margin: '0 auto 1rem auto', fontSize: '1.25rem' }}>A</div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Welcome to Agent Blog</h2>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>Welcome to Agent Blog</h2>
           <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
             {isLogin ? 'Sign in to sync blogs with the backend library' : 'Create an account to save blogs in MongoDB'}
           </p>
         </div>
 
-        <p style={{ color: 'var(--color-text-subtle)', fontSize: '0.8rem', textAlign: 'center', marginBottom: '1rem' }}>
+        <p style={{ color: 'var(--color-text-subtle)', fontSize: '0.78rem', textAlign: 'center', marginBottom: '1rem' }}>
           Guest mode is available from Generate and History even without database setup.
         </p>
 
@@ -58,6 +59,7 @@ export default function Auth() {
             <input 
               type="email" required value={email} onChange={e => setEmail(e.target.value)}
               className="input-textarea" placeholder="you@example.com"
+              style={{ padding: '0.7rem 0.9rem' }}
             />
           </div>
           <div>
@@ -65,10 +67,11 @@ export default function Auth() {
             <input 
               type="password" required value={password} onChange={e => setPassword(e.target.value)}
               className="input-textarea" placeholder="••••••••"
+              style={{ padding: '0.7rem 0.9rem' }}
             />
           </div>
 
-          <button type="submit" className="btn-primary" style={{ marginTop: '1rem', width: '100%' }} disabled={loading}>
+          <button type="submit" className="btn-primary" style={{ marginTop: '0.75rem', width: '100%' }} disabled={loading}>
             {loading ? 'Processing...' : isLogin ? 'Sign In' : 'Sign Up'}
           </button>
         </form>
@@ -78,7 +81,7 @@ export default function Auth() {
           <button 
             type="button" 
             onClick={() => setIsLogin(!isLogin)}
-            style={{ background: 'none', border: 'none', color: '#c084fc', cursor: 'pointer', fontWeight: 600 }}
+            style={{ background: 'none', border: 'none', color: 'var(--color-accent-primary)', cursor: 'pointer', fontWeight: 600, fontFamily: 'var(--font-main)' }}
           >
             {isLogin ? 'Sign up' : 'Sign in'}
           </button>

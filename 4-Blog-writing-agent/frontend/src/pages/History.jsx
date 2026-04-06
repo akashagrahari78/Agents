@@ -57,36 +57,38 @@ export default function History() {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="generate-container">
+      <div className="vanna-bg" />
       <div className="generate-layout" style={{ display: 'block' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-          <h1 className="hero-title" style={{ fontSize: '2.5rem', marginBottom: 0 }}>Content Library</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', gap: '1rem', flexWrap: 'wrap' }}>
+          <h1 style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--color-text-primary)', margin: 0 }}>Content Library</h1>
           
-          <div style={{ position: 'relative', width: '300px' }}>
-            <HiOutlineSearch style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
+          <div style={{ position: 'relative', width: '280px', minWidth: '200px' }}>
+            <HiOutlineSearch style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-subtle)' }} />
             <input
               type="text" value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Search content..." className="input-textarea"
-              style={{ paddingLeft: '2.5rem', borderRadius: '99px' }}
+              style={{ paddingLeft: '2.3rem', borderRadius: 'var(--radius-full)' }}
             />
           </div>
         </div>
 
         {loading ? (
           <div className="empty-state">
-            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" style={{ margin: '0 auto', width: '30px', height: '30px' }} />
+            <div style={{ width: '30px', height: '30px', border: '3px solid var(--color-border)', borderTopColor: 'var(--color-accent-primary)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto' }} />
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
           </div>
         ) : error ? (
           <div className="empty-state">
             <div style={{ textAlign: 'center' }}>
-              <div className="empty-box"><HiOutlineDocumentSearch size={40} color="var(--color-text-subtle)" /></div>
-              <p style={{ color: '#f87171' }}>{error}</p>
+              <div className="empty-box"><HiOutlineDocumentSearch size={32} color="var(--color-text-subtle)" /></div>
+              <p style={{ color: '#dc2626', fontSize: '0.88rem' }}>{error}</p>
             </div>
           </div>
         ) : filtered.length === 0 ? (
           <div className="empty-state">
             <div style={{ textAlign: 'center' }}>
-              <div className="empty-box"><HiOutlineDocumentSearch size={40} color="var(--color-text-subtle)" /></div>
-              <p style={{ color: 'var(--color-text-muted)' }}>No content found</p>
+              <div className="empty-box"><HiOutlineDocumentSearch size={32} color="var(--color-text-subtle)" /></div>
+              <p style={{ color: 'var(--color-text-muted)', fontSize: '0.88rem' }}>No content found</p>
             </div>
           </div>
         ) : (

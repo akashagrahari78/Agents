@@ -25,18 +25,21 @@ const LLM_OPTIONS = [
     label: 'Groq',
     model: 'llama-3.3-70b-versatile',
     description: 'Fast and strong for long technical drafts.',
+    emoji: '⚡',
   },
   {
     provider: 'openai',
     label: 'ChatGPT',
     model: 'gpt-4.1-mini',
     description: 'Balanced writing quality and reliability.',
+    emoji: '✨',
   },
   {
     provider: 'claude',
     label: 'Claude',
     model: 'claude-3-5-sonnet-latest',
     description: 'Great for polished long-form writing.',
+    emoji: '🎯',
   },
 ]
 
@@ -179,21 +182,20 @@ export default function Generate() {
           <title>${safeTitle}</title>
           <style>
             * { box-sizing: border-box; }
-            body { font-family: Arial, sans-serif; margin: 40px; color: #111827; line-height: 1.7; background: white; }
+            body { font-family: 'Inter', Arial, sans-serif; margin: 40px; color: #0f172a; line-height: 1.7; background: white; }
             .print-wrap { max-width: 900px; margin: 0 auto; }
-            .print-title { font-size: 2rem; font-weight: 800; margin-bottom: 2rem; line-height: 1.2; }
-            .markdown-body h1, .markdown-body h2, .markdown-body h3 { color: #111827; line-height: 1.25; margin-top: 1.75rem; margin-bottom: 0.85rem; }
+            .markdown-body h1, .markdown-body h2, .markdown-body h3 { color: #0f172a; line-height: 1.25; margin-top: 1.75rem; margin-bottom: 0.85rem; }
             .markdown-body h1 { font-size: 2rem; }
-            .markdown-body h2 { font-size: 1.45rem; }
+            .markdown-body h2 { font-size: 1.45rem; border-bottom: 2px solid #14b8a6; padding-bottom: 0.5rem; }
             .markdown-body h3 { font-size: 1.15rem; }
-            .markdown-body p, .markdown-body li { color: #374151; font-size: 0.98rem; margin-bottom: 0.9rem; }
+            .markdown-body p, .markdown-body li { color: #475569; font-size: 0.98rem; margin-bottom: 0.9rem; }
             .markdown-body ul, .markdown-body ol { padding-left: 1.5rem; margin-bottom: 1rem; }
-            .markdown-body blockquote { border-left: 4px solid #8b5cf6; background: #f5f3ff; color: #4b5563; padding: 0.9rem 1rem; border-radius: 0 10px 10px 0; margin: 1rem 0; }
-            .markdown-body pre { white-space: pre-wrap; word-break: break-word; background: #111827; color: #f9fafb; padding: 16px; border-radius: 10px; overflow: hidden; margin-bottom: 1rem; }
-            .markdown-body code:not(pre code) { background: #f3f4f6; color: #7c3aed; padding: 0.12rem 0.35rem; border-radius: 6px; font-size: 0.9em; }
+            .markdown-body blockquote { border-left: 4px solid #14b8a6; background: #f0fdfa; color: #475569; padding: 0.9rem 1rem; border-radius: 0 10px 10px 0; margin: 1rem 0; }
+            .markdown-body pre { white-space: pre-wrap; word-break: break-word; background: #1e293b; color: #e2e8f0; padding: 16px; border-radius: 10px; overflow: hidden; margin-bottom: 1rem; }
+            .markdown-body code:not(pre code) { background: #f0fdfa; color: #0d9488; padding: 0.12rem 0.35rem; border-radius: 6px; font-size: 0.9em; }
             .markdown-body img { max-width: 100%; height: auto; margin: 1rem 0 0.5rem; }
-            .markdown-body a { color: #2563eb; text-decoration: none; }
-            .markdown-body hr { border: none; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+            .markdown-body a { color: #0d9488; text-decoration: none; }
+            .markdown-body hr { border: none; border-top: 1px solid #e2e8f0; margin: 1.5rem 0; }
             @page { margin: 18mm 14mm; }
             @media print {
               body { margin: 0; }
@@ -220,6 +222,7 @@ export default function Generate() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="generate-container">
+      <div className="vanna-bg" />
       <div className="generate-layout">
         {/* Left Panel — Input */}
         <div className="panel-left">
@@ -231,7 +234,7 @@ export default function Generate() {
                 placeholder={EXAMPLE_TOPICS[placeholderIndex]} rows={3}
                 className="input-textarea"
               />
-              <div style={{ marginTop: '0.45rem', display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'center' }}>
+              <div style={{ marginTop: '0.4rem', display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.72rem', color: 'var(--color-text-subtle)' }}>
                   {isTopicLimitExceeded ? 'Topic cannot exceed 30 words.' : 'Keep the topic short and focused.'}
                 </span>
@@ -241,58 +244,50 @@ export default function Generate() {
               </div>
             </div>
 
+            {/* LLM Provider — Vanna-style tile selector */}
             <div>
               <label className="input-label">LLM Provider</label>
-              <div className="tone-group" style={{ flexWrap: 'wrap' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.5rem' }}>
                 {LLM_OPTIONS.map((option) => {
                   const isDisabled = option.provider === 'openai' && isOpenAiLimitReached
+                  const isSelected = selectedLlm.provider === option.provider
 
                   return (
-                  <button
-                    key={option.provider}
-                    type="button"
-                    onClick={() => {
-                      if (!isDisabled) setSelectedLlm(option)
-                    }}
-                    disabled={isDisabled}
-                    className="tone-btn"
-                    style={{
-                      flex: '1 1 30%',
-                      minWidth: '120px',
-                      padding: '0.75rem',
-                      borderRadius: '0.9rem',
-                      backgroundColor: isDisabled
-                        ? 'rgba(255,255,255,0.03)'
-                        : selectedLlm.provider === option.provider
-                          ? 'rgba(139, 92, 246, 0.12)'
-                          : 'var(--color-bg-elevated)',
-                      color: isDisabled
-                        ? 'var(--color-text-subtle)'
-                        : selectedLlm.provider === option.provider
-                          ? '#e9d5ff'
-                          : 'var(--color-text-primary)',
-                      border: isDisabled
-                        ? '1px solid rgba(255,255,255,0.05)'
-                        : selectedLlm.provider === option.provider
-                          ? '1px solid rgba(139, 92, 246, 0.4)'
-                          : '1px solid var(--color-border)',
-                      textAlign: 'left',
-                      opacity: isDisabled ? 0.6 : 1,
-                      cursor: isDisabled ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    <div style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '0.2rem' }}>{option.label}</div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginBottom: '0.3rem' }}>{option.model}</div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--color-text-subtle)', lineHeight: 1.4 }}>
-                      {isDisabled ? 'OpenAI limit reached for this account. Use Groq instead.' : option.description}
-                    </div>
-                  </button>
+                    <button
+                      key={option.provider}
+                      type="button"
+                      onClick={() => { if (!isDisabled) setSelectedLlm(option) }}
+                      disabled={isDisabled}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-start',
+                        padding: '0.85rem',
+                        borderRadius: 'var(--radius-lg)',
+                        backgroundColor: isDisabled ? 'var(--color-bg-elevated)' : isSelected ? 'rgba(20, 184, 166, 0.06)' : 'var(--color-bg-surface)',
+                        color: isDisabled ? 'var(--color-text-subtle)' : 'var(--color-text-primary)',
+                        border: isSelected ? '2px solid var(--color-accent-primary)' : '1.5px solid var(--color-border)',
+                        textAlign: 'left',
+                        opacity: isDisabled ? 0.5 : 1,
+                        cursor: isDisabled ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.2s',
+                        fontFamily: 'var(--font-main)',
+                        boxShadow: isSelected ? '0 2px 8px rgba(20, 184, 166, 0.12)' : 'var(--shadow-sm)',
+                      }}
+                    >
+                      <div style={{ fontSize: '1.1rem', marginBottom: '0.25rem' }}>{option.emoji}</div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.15rem' }}>{option.label}</div>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--color-text-subtle)', marginBottom: '0.2rem', fontWeight: 500 }}>{option.model}</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', lineHeight: 1.4 }}>
+                        {isDisabled ? 'Limit reached.' : option.description}
+                      </div>
+                    </button>
                   )
                 })}
               </div>
               {isOpenAiLimitReached && (
-                <div style={{ marginTop: '0.55rem', fontSize: '0.72rem', color: '#f59e0b', fontWeight: 600 }}>
-                  OpenAI is limited to 2 generated blogs per user. Please continue with Groq.
+                <div style={{ marginTop: '0.5rem', fontSize: '0.72rem', color: '#f59e0b', fontWeight: 600 }}>
+                  OpenAI is limited to 2 generated blogs per user.
                 </div>
               )}
             </div>
@@ -300,7 +295,7 @@ export default function Generate() {
             <div>
               <div className="advanced-content">
                 <div>
-                  <label className="input-label" style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>Audience</label>
+                  <label className="input-label" style={{ fontSize: '0.78rem' }}>Audience</label>
                   <select value={audience} onChange={e => setAudience(e.target.value)} className="select-input">
                     <option value="developers">Developers</option>
                     <option value="beginners">Beginners</option>
@@ -311,16 +306,17 @@ export default function Generate() {
                 </div>
 
                 <div>
-                  <label className="input-label" style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>Tone</label>
+                  <label className="input-label" style={{ fontSize: '0.78rem' }}>Tone</label>
                   <div className="tone-group">
                     {['professional', 'casual', 'academic'].map((t) => (
                       <button
                         key={t} onClick={() => setTone(t)}
                         className="tone-btn"
                         style={{
-                          backgroundColor: tone === t ? 'rgba(139, 92, 246, 0.1)' : 'transparent',
-                          color: tone === t ? '#c084fc' : 'var(--color-text-muted)',
-                          border: tone === t ? '1px solid rgba(139, 92, 246, 0.4)' : '1px solid var(--color-border)',
+                          backgroundColor: tone === t ? 'rgba(20, 184, 166, 0.08)' : 'var(--color-bg-surface)',
+                          color: tone === t ? 'var(--color-accent-primary)' : 'var(--color-text-muted)',
+                          border: tone === t ? '2px solid var(--color-accent-primary)' : '1.5px solid var(--color-border)',
+                          fontWeight: tone === t ? 600 : 500,
                         }}
                       >
                         {t}
@@ -332,7 +328,7 @@ export default function Generate() {
                 <div>
                   <label className="word-count-header">
                     Target Word Count
-                    <span style={{ color: '#d946ef', fontWeight: '600' }}>{wordRange.toLocaleString()}</span>
+                    <span style={{ color: 'var(--color-accent-primary)', fontWeight: 700 }}>{wordRange.toLocaleString()}</span>
                   </label>
                   <input type="range" min={500} max={5000} step={100} value={wordRange} onChange={e => setWordRange(Number(e.target.value))} className="slider-input" />
                   <div className="slider-labels"><span>500</span><span>5,000</span></div>
@@ -346,7 +342,7 @@ export default function Generate() {
                   ].map((toggle) => (
                     <label key={toggle.label} className="toggle-item">
                       <span className="toggle-label">{toggle.label}</span>
-                      <div onClick={() => toggle.onChange(!toggle.value)} className={`toggle-switch ${toggle.value ? 'on' : ''}`} style={{ backgroundColor: !toggle.value ? 'var(--color-bg-hover)' : '' }}>
+                      <div onClick={() => toggle.onChange(!toggle.value)} className={`toggle-switch ${toggle.value ? 'on' : ''}`}>
                         <div className="toggle-knob" />
                       </div>
                     </label>
@@ -357,9 +353,9 @@ export default function Generate() {
 
             <button
               onClick={handleGenerate} disabled={isGenerating || !topic.trim() || Boolean(pendingPlanReview) || isTopicLimitExceeded}
-              className={`btn-primary generate-btn ${isGenerating || !topic.trim() || pendingPlanReview || isTopicLimitExceeded ? 'btn-secondary' : ''}`}
+              className={`btn-primary generate-btn ${isGenerating || !topic.trim() || pendingPlanReview || isTopicLimitExceeded ? 'btn-disabled-state' : ''}`}
             >
-              {isGenerating ? 'Generating...' : 'Generate Blog'}
+              {isGenerating ? 'Generating...' : 'Generate Blog →'}
             </button>
 
             {error && <div className="error-badge">{error}</div>}
@@ -372,21 +368,25 @@ export default function Generate() {
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="right-toolbar">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <span className="word-badge">{wc.toLocaleString()} words</span>
-                <span className="word-badge" style={{ backgroundColor: 'rgba(6, 182, 212, 0.12)', color: '#67e8f9' }}>
+                <span className="word-badge" style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#d97706' }}>
                   {(generatedBlog?.llmProvider || selectedLlm.provider).toUpperCase()}
                 </span>
               </div>
               <div className="toolbar-actions">
-                <button onClick={handleCopy} className="action-btn" style={{ backgroundColor: 'var(--color-bg-elevated)', color: copied ? '#10b981' : 'var(--color-text-muted)' }}>
+                <button onClick={handleCopy} className="action-btn" style={{ color: copied ? '#10b981' : undefined }}>
                   <HiOutlineClipboardCopy /> {copied ? 'Copied!' : 'Copy MD'}
                 </button>
-                <button onClick={handleDownload} className="action-btn" style={{ backgroundColor: 'var(--color-bg-elevated)', color: 'var(--color-text-muted)' }}>
+                <button onClick={handleDownload} className="action-btn">
                   <HiOutlineDownload /> Download
                 </button>
-                <button onClick={handleExportPdf} className="action-btn" style={{ backgroundColor: 'var(--color-bg-elevated)', color: 'var(--color-text-muted)' }}>
+                <button onClick={handleExportPdf} className="action-btn">
                   <HiOutlineDocumentDownload /> Export PDF
                 </button>
-                <button onClick={toggleEditMode} className="action-btn" style={{ backgroundColor: editMode ? 'rgba(139, 92, 246, 0.1)' : 'transparent', color: editMode ? '#c084fc' : 'var(--color-text-muted)' }}>
+                <button onClick={toggleEditMode} className="action-btn" style={{
+                  backgroundColor: editMode ? 'rgba(20, 184, 166, 0.08)' : undefined,
+                  color: editMode ? 'var(--color-accent-primary)' : undefined,
+                  borderColor: editMode ? 'var(--color-accent-primary)' : undefined,
+                }}>
                   <HiOutlinePencil /> {editMode ? 'Preview' : 'Edit'}
                 </button>
               </div>
@@ -395,13 +395,13 @@ export default function Generate() {
 
           {progress.length > 0 && (isGenerating || pendingPlanReview) && (
             <div className="section-card">
-              <h3 className="input-label" style={{ fontSize: '0.875rem' }}>Generation Progress</h3>
+              <h3 className="input-label" style={{ fontSize: '0.88rem' }}>Generation Progress</h3>
               {activeStep && (
-                <div style={{ marginBottom: '1rem', padding: '0.9rem 1rem', borderRadius: '0.85rem', backgroundColor: 'rgba(139, 92, 246, 0.08)', border: '1px solid rgba(139, 92, 246, 0.18)' }}>
-                  <div style={{ fontSize: '0.75rem', color: '#c084fc', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>
+                <div style={{ marginBottom: '1rem', padding: '0.85rem 1rem', borderRadius: 'var(--radius-md)', backgroundColor: 'rgba(20, 184, 166, 0.06)', border: '1px solid rgba(20, 184, 166, 0.15)' }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--color-accent-primary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.3rem' }}>
                     Current Step
                   </div>
-                  <div style={{ fontSize: '0.95rem', color: 'var(--color-text-primary)', fontWeight: 600 }}>
+                  <div style={{ fontSize: '0.92rem', color: 'var(--color-text-primary)', fontWeight: 600 }}>
                     {activeStep.label}
                   </div>
                 </div>
@@ -411,48 +411,48 @@ export default function Generate() {
           )}
 
           {pendingPlanReview && reviewPlan && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="section-card" style={{ padding: '2rem' }}>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="section-card" style={{ padding: '1.75rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
                 <div>
-                  <h3 className="input-label" style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>Review Plan Before Drafting</h3>
-                  <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: '0.92rem', lineHeight: 1.6 }}>
+                  <h3 className="input-label" style={{ fontSize: '1rem', marginBottom: '0.4rem' }}>Review Plan Before Drafting</h3>
+                  <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: '0.88rem', lineHeight: 1.6 }}>
                     LangGraph paused after the orchestrator step. Approve this outline to continue to section writing, or reject it to loop back and generate a fresh plan.
                   </p>
                 </div>
-                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                  <button onClick={() => handlePlanDecision(false)} disabled={isGenerating} className="action-btn" style={{ backgroundColor: 'var(--color-bg-elevated)', color: 'var(--color-text-primary)' }}>
-                    No, regenerate plan
+                <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
+                  <button onClick={() => handlePlanDecision(false)} disabled={isGenerating} className="action-btn" style={{ padding: '0.5rem 1rem' }}>
+                    No, regenerate
                   </button>
-                  <button onClick={() => handlePlanDecision(true)} disabled={isGenerating} className="btn-primary" style={{ minWidth: '140px' }}>
-                    Yes, continue
+                  <button onClick={() => handlePlanDecision(true)} disabled={isGenerating} className="btn-primary" style={{ minWidth: '130px', padding: '0.5rem 1rem', fontSize: '0.85rem' }}>
+                    Yes, continue →
                   </button>
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gap: '1rem' }}>
-                <div style={{ padding: '1rem', borderRadius: '1rem', backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)' }}>
-                  <div style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.4rem', color: 'var(--color-text-primary)' }}>
+              <div style={{ display: 'grid', gap: '0.85rem' }}>
+                <div style={{ padding: '1rem', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)' }}>
+                  <div style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.35rem', color: 'var(--color-text-primary)' }}>
                     {reviewPlan.blog_title}
                   </div>
-                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                     <span className="word-badge">{reviewPlan.audience}</span>
-                    <span className="word-badge">{reviewPlan.tone}</span>
-                    <span className="word-badge">{reviewPlan.blog_kind?.replace('_', ' ')}</span>
+                    <span className="word-badge" style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#d97706' }}>{reviewPlan.tone}</span>
+                    <span className="word-badge" style={{ backgroundColor: 'rgba(20, 184, 166, 0.08)', color: 'var(--color-accent-primary)' }}>{reviewPlan.blog_kind?.replace('_', ' ')}</span>
                   </div>
                 </div>
 
                 {Array.isArray(reviewPlan.tasks) && reviewPlan.tasks.map((task) => (
-                  <div key={task.id} style={{ padding: '1rem', borderRadius: '1rem', backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
-                      <div style={{ fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                  <div key={task.id} style={{ padding: '1rem', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center', marginBottom: '0.4rem', flexWrap: 'wrap' }}>
+                      <div style={{ fontWeight: 700, color: 'var(--color-text-primary)', fontSize: '0.92rem' }}>
                         {task.id}. {task.title}
                       </div>
                       <span className="word-badge">{task.target_words} words</span>
                     </div>
-                    <p style={{ margin: '0 0 0.8rem 0', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+                    <p style={{ margin: '0 0 0.65rem 0', color: 'var(--color-text-muted)', lineHeight: 1.6, fontSize: '0.88rem' }}>
                       {task.goal}
                     </p>
-                    <ul style={{ margin: 0, paddingLeft: '1.2rem', color: 'var(--color-text-muted)', lineHeight: 1.7 }}>
+                    <ul style={{ margin: 0, paddingLeft: '1.1rem', color: 'var(--color-text-muted)', lineHeight: 1.7, fontSize: '0.85rem' }}>
                       {Array.isArray(task.bullets) && task.bullets.map((bullet, index) => (
                         <li key={`${task.id}-${index}`}>{bullet}</li>
                       ))}
@@ -484,8 +484,8 @@ export default function Generate() {
           {!isGenerating && !generatedBlog && !pendingPlanReview && (
             <div className="empty-state">
               <div style={{ textAlign: 'center' }}>
-                <div className="empty-box"><HiOutlinePencil size={32} color="var(--color-text-subtle)" /></div>
-                <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>Enter a topic and click Generate to create your blog</p>
+                <div className="empty-box"><HiOutlinePencil size={28} color="var(--color-text-subtle)" /></div>
+                <p style={{ fontSize: '0.88rem', color: 'var(--color-text-muted)' }}>Enter a topic and click Generate to create your blog</p>
               </div>
             </div>
           )}
