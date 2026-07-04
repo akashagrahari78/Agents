@@ -28,7 +28,6 @@ The app lets a user enter a topic and blog preferences, generate a plan, review 
 - React
 - Vite
 - React Router
-- Zustand
 - Axios
 - Framer Motion
 - React Markdown
