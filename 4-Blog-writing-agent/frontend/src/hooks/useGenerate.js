@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react'
-import useStore from '../store/useStore'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { useUserContext } from '../context/userContext'
 import { buildApiUrl } from '../utils/api'
 
 const STEP_LABELS = [
@@ -65,21 +65,54 @@ async function readSseStream(response, onData) {
 export function useGenerate() {
   const {
     setIsGenerating,
-    addProgress,
     updateProgress,
     resetProgress,
     setProgress,
     setGeneratedBlog,
     setPendingPlanReview,
     setGenerationSessionId,
-  } = useStore()
+    token,
+    progress,
+    generationSessionId,
+  } = useUserContext()
 
   const [error, setError] = useState(null)
+  const tokenRef = useRef(token)
+  const progressRef = useRef(progress)
+  const generationSessionIdRef = useRef(generationSessionId)
+
+  useEffect(() => {
+    tokenRef.current = token
+  }, [token])
+
+  useEffect(() => {
+    progressRef.current = progress
+  }, [progress])
+
+  useEffect(() => {
+    generationSessionIdRef.current = generationSessionId
+  }, [generationSessionId])
+
+  const setProgressWithRef = useCallback((nextProgress) => {
+    progressRef.current = nextProgress
+    setProgress(nextProgress)
+  }, [setProgress])
+
+  const updateProgressWithRef = useCallback((index, updates) => {
+    progressRef.current = progressRef.current.map((step, stepIndex) => (
+      stepIndex === index ? { ...step, ...updates } : step
+    ))
+    updateProgress(index, updates)
+  }, [updateProgress])
+
+  const setGenerationSessionIdWithRef = useCallback((sessionId) => {
+    generationSessionIdRef.current = sessionId
+    setGenerationSessionId(sessionId)
+  }, [setGenerationSessionId])
 
   const runRequest = useCallback(async (url, body) => {
-    const token = useStore.getState().token
     const headers = { 'Content-Type': 'application/json' }
-    if (token) headers.Authorization = `Bearer ${token}`
+    if (tokenRef.current) headers.Authorization = `Bearer ${tokenRef.current}`
 
     const response = await fetch(buildApiUrl(url), {
       method: 'POST',
@@ -95,21 +128,21 @@ export function useGenerate() {
       if (data.type === 'step') {
         if (data.stepIndex !== undefined) {
           if (data.status === 'active') {
-            const currentProgress = useStore.getState().progress
+            const currentProgress = progressRef.current
             for (let index = 0; index < data.stepIndex; index += 1) {
               const step = currentProgress[index]
               if (step && step.status !== 'done' && step.status !== 'error') {
-                updateProgress(index, { status: 'done' })
+                updateProgressWithRef(index, { status: 'done' })
               }
             }
           }
-          updateProgress(data.stepIndex, { status: data.status })
+          updateProgressWithRef(data.stepIndex, { status: data.status })
         }
         return
       }
 
       if (data.type === 'plan_review') {
-        setProgress([
+        setProgressWithRef([
           { id: 0, label: STEP_LABELS[0], status: 'done' },
           { id: 1, label: STEP_LABELS[1], status: 'done' },
           { id: 2, label: STEP_LABELS[2], status: 'done' },
@@ -117,26 +150,26 @@ export function useGenerate() {
           { id: 4, label: STEP_LABELS[4], status: 'pending' },
         ])
         setPendingPlanReview(data.review)
-        setGenerationSessionId(data.sessionId)
+        setGenerationSessionIdWithRef(data.sessionId)
         return
       }
 
       if (data.type === 'complete') {
         setPendingPlanReview(null)
-        setGenerationSessionId(null)
+        setGenerationSessionIdWithRef(null)
         setGeneratedBlog(data.blog)
         return
       }
 
       if (data.type === 'error') {
-        const activeStepIndex = useStore.getState().progress.findIndex((step) => step.status === 'active')
+        const activeStepIndex = progressRef.current.findIndex((step) => step.status === 'active')
         if (activeStepIndex !== -1) {
-          updateProgress(activeStepIndex, { status: 'error' })
+          updateProgressWithRef(activeStepIndex, { status: 'error' })
         }
         setError(getFriendlyErrorMessage(data.message))
       }
     })
-  }, [setGeneratedBlog, setGenerationSessionId, setPendingPlanReview, setProgress, updateProgress])
+  }, [setGeneratedBlog, setGenerationSessionIdWithRef, setPendingPlanReview, setProgressWithRef, updateProgressWithRef])
 
   const generate = useCallback(async (formData) => {
     setError(null)
@@ -144,8 +177,8 @@ export function useGenerate() {
     setIsGenerating(true)
     setGeneratedBlog(null)
     setPendingPlanReview(null)
-    setGenerationSessionId(null)
-    setProgress(buildInitialProgress())
+    setGenerationSessionIdWithRef(null)
+    setProgressWithRef(buildInitialProgress())
 
     try {
       await runRequest('/api/generate', formData)
@@ -154,10 +187,10 @@ export function useGenerate() {
     } finally {
       setIsGenerating(false)
     }
-  }, [resetProgress, runRequest, setGeneratedBlog, setGenerationSessionId, setIsGenerating, setPendingPlanReview, setProgress])
+  }, [resetProgress, runRequest, setGeneratedBlog, setGenerationSessionIdWithRef, setIsGenerating, setPendingPlanReview, setProgressWithRef])
 
   const submitPlanReview = useCallback(async ({ approved, topic }) => {
-    const { generationSessionId } = useStore.getState()
+    const generationSessionId = generationSessionIdRef.current
     if (!generationSessionId) {
       setError('Plan review session expired. Please generate again.')
       return
@@ -168,7 +201,7 @@ export function useGenerate() {
     setPendingPlanReview(null)
 
     if (approved) {
-      setProgress([
+      setProgressWithRef([
         { id: 0, label: STEP_LABELS[0], status: 'done' },
         { id: 1, label: STEP_LABELS[1], status: 'done' },
         { id: 2, label: STEP_LABELS[2], status: 'done' },
@@ -177,7 +210,7 @@ export function useGenerate() {
       ])
     } else {
       resetProgress()
-      setProgress(buildInitialProgress(0))
+      setProgressWithRef(buildInitialProgress(0))
     }
 
     try {
@@ -191,7 +224,7 @@ export function useGenerate() {
     } finally {
       setIsGenerating(false)
     }
-  }, [resetProgress, runRequest, setIsGenerating, setPendingPlanReview, setProgress])
+  }, [resetProgress, runRequest, setIsGenerating, setPendingPlanReview, setProgressWithRef])
 
   return { generate, submitPlanReview, error, stepLabels: STEP_LABELS }
 }

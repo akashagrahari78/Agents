@@ -1,0 +1,15 @@
+User Input (topic, settings)
+    ↓
+[Generate Button]
+    ↓
+Backend: LangGraph agent generates plan
+    ↓
+UI: Shows plan for user review
+    ↓
+User: Approve/Reject plan
+    ↓
+Backend: Generates full blog sections
+    ↓
+UI: Displays markdown blog
+    ↓
+User: Copy/Download/Export/Edit

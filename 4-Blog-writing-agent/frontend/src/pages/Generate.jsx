@@ -4,7 +4,7 @@ import { HiOutlineClipboardCopy, HiOutlineDownload, HiOutlineDocumentDownload, H
 import ProgressTracker from '../components/ProgressTracker'
 import MarkdownViewer from '../components/MarkdownViewer'
 import { useGenerate } from '../hooks/useGenerate'
-import useStore from '../store/useStore'
+import { useUserContext } from '../context/userContext'
 import { wordCount } from '../utils/helpers'
 import { apiClient } from '../utils/api'
 
@@ -52,12 +52,12 @@ export default function Generate() {
   const [includeCode, setIncludeCode] = useState(true)
   const [includeCitations, setIncludeCitations] = useState(true)
   const [includeImages, setIncludeImages] = useState(false)
-  const [placeholderIndex, setPlaceholderIndex] = useState(0)
-  const [copied, setCopied] = useState(false)
-  const [openAiUsageCount, setOpenAiUsageCount] = useState(0)
+  const [placeholderIndex, setPlaceholderIndex] = useState(0)   //Cycles through example topics every 3 seconds
+  const [copied, setCopied] = useState(false)  //Provides visual feedback when user copies markdown content, Changes the "Copy MD" button text to "Copied!" and turns it green
+  const [openAiUsageCount, setOpenAiUsageCount] = useState(0)   //tracks how many blogs the user has generated using OpenAI,,  Enforces a limit of 2 OpenAI blogs per user 
 
   const { generate, submitPlanReview, error } = useGenerate()
-  const { token, isGenerating, progress, generatedBlog, pendingPlanReview, editMode, toggleEditMode, setEditMode } = useStore()
+  const { token, isGenerating, progress, generatedBlog, pendingPlanReview, editMode, toggleEditMode, setEditMode } = useUserContext()
   const [editContent, setEditContent] = useState('')
   const textareaRef = useRef(null)
   const exportPreviewRef = useRef(null)

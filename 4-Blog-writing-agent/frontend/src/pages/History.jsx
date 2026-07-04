@@ -2,7 +2,7 @@ import { motion } from 'framer-motion'
 import BlogCard from '../components/BlogCard'
 import { HiOutlineSearch, HiOutlineDocumentSearch } from 'react-icons/hi'
 import { useState, useEffect } from 'react'
-import useStore from '../store/useStore'
+import { useUserContext } from '../context/userContext'
 import { apiClient } from '../utils/api'
 
 export default function History() {
@@ -11,7 +11,7 @@ export default function History() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [deletingId, setDeletingId] = useState('')
-  const token = useStore(state => state.token)
+  const token = useUserContext(state => state.token)
 
   const fetchHistory = async () => {
     setLoading(true)

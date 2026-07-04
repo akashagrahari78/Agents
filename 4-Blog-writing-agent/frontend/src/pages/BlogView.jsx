@@ -1,7 +1,7 @@
 import { useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
-import useStore from '../store/useStore'
+import { useUserContext } from '../context/userContext'
 import MarkdownViewer from '../components/MarkdownViewer'
 import { HiOutlineArrowLeft, HiOutlineCalendar, HiOutlineDocumentText } from 'react-icons/hi'
 import { formatDate, wordCount } from '../utils/helpers'
@@ -11,7 +11,7 @@ export default function BlogView() {
   const { id } = useParams()
   const [blog, setBlog] = useState(null)
   const [loading, setLoading] = useState(true)
-  const token = useStore(state => state.token)
+  const token = useUserContext(state => state.token)
 
   useEffect(() => {
     const fetchBlog = async () => {

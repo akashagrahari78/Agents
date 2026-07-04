@@ -1,19 +1,20 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
-import useStore from '../store/useStore'
+import { useUserContext } from '../context/userContext'
 import { apiClient } from '../utils/api'
 
 export default function Auth() {
+  
   const [isLogin, setIsLogin] = useState(true)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   
-  const setAuth = useStore(state => state.setAuth)
+  const setAuth = useUserContext(state => state.setAuth)
   const navigate = useNavigate()
-
+                                               
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')

@@ -1,11 +1,11 @@
 import { motion } from 'framer-motion'
 import { HiOutlineChevronRight } from 'react-icons/hi'
-import useStore from '../store/useStore'
+import { useUserContext } from '../context/userContext'
 import { wordCount, truncate, markdownToText } from '../utils/helpers'
 import { Link } from 'react-router-dom'
 
 export default function Drawer({ isOpen, onClose }) {
-  const { history } = useStore()
+  const { history } = useUserContext()
   
   if (!isOpen) return null
   
