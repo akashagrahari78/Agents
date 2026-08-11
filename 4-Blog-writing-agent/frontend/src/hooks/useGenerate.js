@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
-import { useUserContext } from '../context/userContext'
+import { useState, useCallback, useContext, useEffect, useRef } from 'react'
+import { userContext } from '../context/userContext'
 import { buildApiUrl } from '../utils/api'
 
 const STEP_LABELS = [
@@ -74,7 +74,7 @@ export function useGenerate() {
     token,
     progress,
     generationSessionId,
-  } = useUserContext()
+  } = useContext(userContext)
 
   const [error, setError] = useState(null)
   const tokenRef = useRef(token)
@@ -114,6 +114,7 @@ export function useGenerate() {
     const headers = { 'Content-Type': 'application/json' }
     if (tokenRef.current) headers.Authorization = `Bearer ${tokenRef.current}`
 
+    // doing a request to backend
     const response = await fetch(buildApiUrl(url), {
       method: 'POST',
       headers,

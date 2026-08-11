@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
-import { useUserContext } from './context/userContext'
+import { useContext } from 'react'
+import { userContext } from './context/userContext'
 import Navbar from './components/Navbar'
 import Landing from './pages/Landing'
 import Generate from './pages/Generate'
@@ -9,7 +10,7 @@ import BlogView from './pages/BlogView'
 import Auth from './pages/Auth'
 
 const ProtectedRoute = ({ children }) => {
-  const token = useUserContext(state => state.token)
+  const { token } = useContext(userContext)
   if (!token) return <Navigate to="/auth" replace />
   return children
 }

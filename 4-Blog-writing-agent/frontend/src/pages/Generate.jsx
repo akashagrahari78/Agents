@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
+import { useContext, useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { HiOutlineClipboardCopy, HiOutlineDownload, HiOutlineDocumentDownload, HiOutlinePencil } from 'react-icons/hi'
 import ProgressTracker from '../components/ProgressTracker'
 import MarkdownViewer from '../components/MarkdownViewer'
 import { useGenerate } from '../hooks/useGenerate'
-import { useUserContext } from '../context/userContext'
+import { userContext } from '../context/userContext'
 import { wordCount } from '../utils/helpers'
 import { apiClient } from '../utils/api'
 
@@ -57,7 +57,7 @@ export default function Generate() {
   const [openAiUsageCount, setOpenAiUsageCount] = useState(0)   //tracks how many blogs the user has generated using OpenAI,,  Enforces a limit of 2 OpenAI blogs per user 
 
   const { generate, submitPlanReview, error } = useGenerate()
-  const { token, isGenerating, progress, generatedBlog, pendingPlanReview, editMode, toggleEditMode, setEditMode } = useUserContext()
+  const { token, isGenerating, progress, generatedBlog, pendingPlanReview, editMode, toggleEditMode, setEditMode } = useContext(userContext)
   const [editContent, setEditContent] = useState('')
   const textareaRef = useRef(null)
   const exportPreviewRef = useRef(null)

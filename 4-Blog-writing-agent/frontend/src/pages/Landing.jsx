@@ -30,21 +30,34 @@ const features = [
 const TechMarquee = () => (
   <div className="marquee-container">
     <div className="marquee-wrapper">
-      {[...Array(2)].map((_, i) => (
-        <div key={i} className="marquee-content">
-          <div className="marquee-item"><HiOutlineLightningBolt /> Llama 3 70B Engine</div>
-          <div className="marquee-item"><HiOutlineGlobe /> Multi-Agent Routines</div>
-          <div className="marquee-item"><HiOutlineDatabase /> MongoDB Neural Storage</div>
-          <div className="marquee-item"><HiOutlineLightningBolt /> GROQ LPU Inference</div>
-          <div className="marquee-item"><HiOutlineSearch /> Autonomous Deep Research</div>
-          <div className="marquee-item"><HiOutlineGlobe /> Tavily Integration</div>
-          <div className="marquee-item"><HiOutlineDocumentText /> Markdown Structuring</div>
-          <div className="marquee-item"><HiOutlineLightningBolt /> Real-time SSE Streaming</div>
-        </div>
-      ))}
+
+      {/* First Copy */}
+      <div className="marquee-content">
+        <div className="marquee-item"><HiOutlineLightningBolt /> Llama 3 70B Engine</div>
+        <div className="marquee-item"><HiOutlineGlobe /> Multi-Agent Routines</div>
+        <div className="marquee-item"><HiOutlineDatabase /> MongoDB Neural Storage</div>
+        <div className="marquee-item"><HiOutlineLightningBolt /> GROQ LPU Inference</div>
+        <div className="marquee-item"><HiOutlineSearch /> Autonomous Deep Research</div>
+        <div className="marquee-item"><HiOutlineGlobe /> Tavily Integration</div>
+        <div className="marquee-item"><HiOutlineDocumentText /> Markdown Structuring</div>
+        <div className="marquee-item"><HiOutlineLightningBolt /> Real-time SSE Streaming</div>
+      </div>
+
+      {/* Second Copy */}
+      <div className="marquee-content">
+        <div className="marquee-item"><HiOutlineLightningBolt /> Llama 3 70B Engine</div>
+        <div className="marquee-item"><HiOutlineGlobe /> Multi-Agent Routines</div>
+        <div className="marquee-item"><HiOutlineDatabase /> MongoDB Neural Storage</div>
+        <div className="marquee-item"><HiOutlineLightningBolt /> GROQ LPU Inference</div>
+        <div className="marquee-item"><HiOutlineSearch /> Autonomous Deep Research</div>
+        <div className="marquee-item"><HiOutlineGlobe /> Tavily Integration</div>
+        <div className="marquee-item"><HiOutlineDocumentText /> Markdown Structuring</div>
+        <div className="marquee-item"><HiOutlineLightningBolt /> Real-time SSE Streaming</div>
+      </div>
+
     </div>
   </div>
-)
+);
 
 const UseCases = () => (
   <section style={{ padding: '0 1.5rem 5rem 1.5rem', maxWidth: '1000px', margin: '0 auto', textAlign: 'center', position: 'relative', zIndex: 10 }}>

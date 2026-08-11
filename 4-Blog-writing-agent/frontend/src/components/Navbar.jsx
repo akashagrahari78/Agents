@@ -1,13 +1,13 @@
-import { useState } from 'react'
+import { useContext, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { HiHome, HiPencilAlt, HiCollection, HiLogout, HiLogin, HiMenu, HiX } from 'react-icons/hi'
 import { motion } from 'framer-motion'
-import { useUserContext } from '../context/userContext'
+import { userContext } from '../context/userContext'
 
 export default function Navbar() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, logout } = useUserContext()
+  const { user, logout } = useContext(userContext)
   const [mobileOpen, setMobileOpen] = useState(false)
 
   const handleLogout = () => {

@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useContext, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
-import { useUserContext } from '../context/userContext'
+import { userContext } from '../context/userContext'
 import { apiClient } from '../utils/api'
 
 export default function Auth() {
@@ -12,7 +12,7 @@ export default function Auth() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   
-  const setAuth = useUserContext(state => state.setAuth)
+  const { setAuth } = useContext(userContext)
   const navigate = useNavigate()
                                                
   const handleSubmit = async (e) => {

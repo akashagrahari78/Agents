@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react'
+import { createContext, useState } from 'react'
 
 export const userContext = createContext()
 
@@ -105,14 +105,4 @@ export const UserContextProvider = ({ children }) => {
       {children}
     </userContext.Provider>
   )
-}
-
-export const useUserContext = (selector) => {
-  const store = useContext(userContext)
-
-  if (!store) {
-    throw new Error('useUserContext must be used within UserContextProvider')
-  }
-
-  return typeof selector === 'function' ? selector(store) : store
 }
