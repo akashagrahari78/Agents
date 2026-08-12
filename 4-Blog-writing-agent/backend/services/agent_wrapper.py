@@ -1,8 +1,8 @@
 """
 Session-based wrapper for the LangGraph blog-writing agent.
 
-It starts the graph, emits progress events, pauses on LangGraph interrupts for
-human review, and can resume from stdin commands without losing graph state.
+It starts the graph, pauses on LangGraph interrupts for human review, and can
+resume from stdin commands without losing graph state.
 """
 import json
 import os
@@ -13,7 +13,6 @@ from datetime import date
 
 from dotenv import load_dotenv
 from langgraph.checkpoint.memory import InMemorySaver
-from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command
 
 
@@ -29,10 +28,6 @@ sys.path.insert(0, BACKEND_DIR)
 
 def emit(prefix, payload):
     print(f"{prefix}:{json.dumps(payload)}", flush=True)
-
-
-def emit_step(index, status):
-    emit("STEP", {"index": index, "status": status})
 
 
 def build_sections(plan, final_markdown):
@@ -135,21 +130,11 @@ def serialize_final_result(out, payload, default_model_by_provider):
     }
 
 
-def build_workflow_with_progress():
+def build_session_workflow():
     from agent.main import (
-        BlogState,
         DEFAULT_MODEL_BY_PROVIDER,
+        build_workflow,
         configure_llm,
-        dispatch_workers_node,
-        fanout,
-        next_route,
-        orchestrator_node,
-        reducer_subgraph,
-        research_node,
-        review_plan_node,
-        route_after_plan_review,
-        router_node,
-        worker_node,
     )
 
     payload = parse_payload()
@@ -157,60 +142,7 @@ def build_workflow_with_progress():
     llm_model = (payload.get("llmModel") or DEFAULT_MODEL_BY_PROVIDER.get(llm_provider, "")).strip()
     configure_llm(llm_provider, llm_model)
 
-    def router_with_progress(state):
-        emit_step(0, "active")
-        result = router_node(state)
-        emit_step(0, "done")
-        return result
-
-    def research_with_progress(state):
-        emit_step(1, "active")
-        result = research_node(state)
-        emit_step(1, "done")
-        return result
-
-    def orchestrator_with_progress(state):
-        emit_step(2, "active")
-        result = orchestrator_node(state)
-        emit_step(2, "done")
-        return result
-
-    def review_with_progress(state):
-        return review_plan_node(state)
-
-    def dispatch_workers_with_progress(state):
-        emit_step(3, "active")
-        return dispatch_workers_node(state)
-
-    def worker_with_progress(payload):
-        return worker_node(payload)
-
-    def reducer_with_progress(state):
-        emit_step(3, "done")
-        emit_step(4, "active")
-        result = reducer_subgraph.invoke(state)
-        emit_step(4, "done")
-        return result
-
-    graph = StateGraph(BlogState)
-    graph.add_node("router", router_with_progress)
-    graph.add_node("research", research_with_progress)
-    graph.add_node("orchestrator", orchestrator_with_progress)
-    graph.add_node("review_plan", review_with_progress)
-    graph.add_node("dispatch_workers", dispatch_workers_with_progress)
-    graph.add_node("worker", worker_with_progress)
-    graph.add_node("reducer", reducer_with_progress)
-
-    graph.add_edge(START, "router")
-    graph.add_conditional_edges("router", next_route, {"research": "research", "orchestrator": "orchestrator"})
-    graph.add_edge("research", "orchestrator")
-    graph.add_edge("orchestrator", "review_plan")
-    graph.add_conditional_edges("review_plan", route_after_plan_review, {"dispatch_workers": "dispatch_workers", "router": "router"})
-    graph.add_conditional_edges("dispatch_workers", fanout, ["worker"])
-    graph.add_edge("worker", "reducer")
-    graph.add_edge("reducer", END)
-
-    workflow = graph.compile(checkpointer=InMemorySaver())
+    workflow = build_workflow(checkpointer=InMemorySaver())
     return payload, DEFAULT_MODEL_BY_PROVIDER, workflow
 
 
@@ -239,7 +171,7 @@ def run_until_pause_or_complete(workflow, command_or_input, config, payload, def
 
 
 def main():
-    payload, default_model_by_provider, workflow = build_workflow_with_progress()
+    payload, default_model_by_provider, workflow = build_session_workflow()
     initial_state = build_input_state(payload, default_model_by_provider)
     thread_id = payload.get("threadId") or payload.get("sessionId") or str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}

@@ -1,7 +1,6 @@
 import { useContext, useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { HiOutlineClipboardCopy, HiOutlineDownload, HiOutlineDocumentDownload, HiOutlinePencil } from 'react-icons/hi'
-import ProgressTracker from '../components/ProgressTracker'
 import MarkdownViewer from '../components/MarkdownViewer'
 import { useGenerate } from '../hooks/useGenerate'
 import { userContext } from '../context/userContext'
@@ -57,7 +56,7 @@ export default function Generate() {
   const [openAiUsageCount, setOpenAiUsageCount] = useState(0)   //tracks how many blogs the user has generated using OpenAI,,  Enforces a limit of 2 OpenAI blogs per user 
 
   const { generate, submitPlanReview, error } = useGenerate()
-  const { token, isGenerating, progress, generatedBlog, pendingPlanReview, editMode, toggleEditMode, setEditMode } = useContext(userContext)
+  const { token, isGenerating, generatedBlog, pendingPlanReview, editMode, toggleEditMode, setEditMode } = useContext(userContext)
   const [editContent, setEditContent] = useState('')
   const textareaRef = useRef(null)
   const exportPreviewRef = useRef(null)
@@ -92,7 +91,7 @@ export default function Generate() {
           : 0
 
         setOpenAiUsageCount(openAiBlogs)
-      } catch (_) {
+      } catch {
         if (!cancelled) setOpenAiUsageCount(0)
       }
     }
@@ -217,7 +216,6 @@ export default function Generate() {
 
   const blogContent = editMode ? editContent : generatedBlog?.finalMarkdown
   const wc = wordCount(blogContent || '')
-  const activeStep = progress.find((step) => step.status === 'active')
   const reviewPlan = pendingPlanReview?.plan
 
   return (
@@ -393,20 +391,15 @@ export default function Generate() {
             </motion.div>
           )}
 
-          {progress.length > 0 && (isGenerating || pendingPlanReview) && (
-            <div className="section-card">
-              <h3 className="input-label" style={{ fontSize: '0.88rem' }}>Generation Progress</h3>
-              {activeStep && (
-                <div style={{ marginBottom: '1rem', padding: '0.85rem 1rem', borderRadius: 'var(--radius-md)', backgroundColor: 'rgba(20, 184, 166, 0.06)', border: '1px solid rgba(20, 184, 166, 0.15)' }}>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--color-accent-primary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.3rem' }}>
-                    Current Step
-                  </div>
-                  <div style={{ fontSize: '0.92rem', color: 'var(--color-text-primary)', fontWeight: 600 }}>
-                    {activeStep.label}
-                  </div>
-                </div>
-              )}
-              <ProgressTracker steps={progress} />
+          {isGenerating && (
+            <div className="section-card generation-spinner-card">
+              <div className="generation-spinner" />
+              <div>
+                <h3 className="input-label" style={{ fontSize: '0.95rem', marginBottom: '0.25rem' }}>Generating Blog</h3>
+                <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: '0.86rem', lineHeight: 1.6 }}>
+                  Please wait while the blog is being prepared.
+                </p>
+              </div>
             </div>
           )}
 

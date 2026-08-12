@@ -7,7 +7,6 @@ export const UserContextProvider = ({ children }) => {
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('user') || 'null'))
   const [theme, setTheme] = useState('dark')
   const [isGenerating, setIsGenerating] = useState(false)
-  const [progress, setProgress] = useState([])
   const [generatedBlog, setGeneratedBlog] = useState(null)
   const [pendingPlanReview, setPendingPlanReview] = useState(null)
   const [generationSessionId, setGenerationSessionId] = useState(null)
@@ -46,22 +45,6 @@ export const UserContextProvider = ({ children }) => {
     })
   }
 
-  const addProgress = (step) => {
-    setProgress((currentProgress) => [...currentProgress, step])
-  }
-
-  const updateProgress = (index, updates) => {
-    setProgress((currentProgress) => (
-      currentProgress.map((step, stepIndex) => (
-        stepIndex === index ? { ...step, ...updates } : step
-      ))
-    ))
-  }
-
-  const resetProgress = () => {
-    setProgress([])
-  }
-
   const closeDrawer = () => {
     setDrawerBlog(null)
   }
@@ -80,11 +63,6 @@ export const UserContextProvider = ({ children }) => {
     toggleTheme,
     isGenerating,
     setIsGenerating,
-    progress,
-    addProgress,
-    setProgress,
-    updateProgress,
-    resetProgress,
     generatedBlog,
     setGeneratedBlog,
     pendingPlanReview,

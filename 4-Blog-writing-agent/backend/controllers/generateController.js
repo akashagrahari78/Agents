@@ -84,11 +84,7 @@ async function generateBlog(req, res) {
 
     await enforceOpenAiGenerationLimit(req);
 
-    const result = await runAgent(req.body, (event) => {
-      if (event?.type === 'step') {
-        sendEvent(event);
-      }
-    });
+    const result = await runAgent(req.body);
 
     if (result.type === 'interrupt') {
       sendEvent({
@@ -133,11 +129,7 @@ async function reviewPlan(req, res) {
       return;
     }
 
-    const result = await resumeAgent(sessionId, approved, (event) => {
-      if (event?.type === 'step') {
-        sendEvent(event);
-      }
-    });
+    const result = await resumeAgent(sessionId, approved);
 
     if (result.type === 'interrupt') {
       sendEvent({

@@ -69,16 +69,6 @@ function handleStdout(sessionId, chunk) {
   for (const line of lines) {
     if (!line) continue;
 
-    if (line.startsWith('STEP:')) {
-      try {
-        const step = JSON.parse(line.slice(5));
-        session.onEvent?.({ type: 'step', stepIndex: step.index, status: step.status });
-      } catch (_) {
-        // ignore malformed step payloads
-      }
-      continue;
-    }
-
     if (line.startsWith('INTERRUPT:')) {
       try {
         const interrupt = JSON.parse(line.slice(10));
@@ -110,7 +100,7 @@ function handleStdout(sessionId, chunk) {
   }
 }
 
-function createSession(params, onEvent, pending = null) {
+function createSession(params, pending = null) {
   const sessionId = params.sessionId || crypto.randomUUID();
   const agentScriptDir = path.resolve(__dirname, '..');
   const wrapperScript = path.resolve(__dirname, 'agent_wrapper.py');
@@ -133,7 +123,6 @@ function createSession(params, onEvent, pending = null) {
     child,
     stderr: '',
     stdoutBuffer: '',
-    onEvent,
     pending,
   };
 
@@ -166,26 +155,25 @@ function createSession(params, onEvent, pending = null) {
   return session;
 }
 
-function waitForSession(session, onEvent) {
-  session.onEvent = onEvent;
+function waitForSession(session) {
   return new Promise((resolve, reject) => {
     session.pending = { resolve, reject };
   });
 }
 
-async function runAgent(params, onEvent) {
+async function runAgent(params) {
   return new Promise((resolve, reject) => {
-    createSession(params, onEvent, { resolve, reject });
+    createSession(params, { resolve, reject });
   });
 }
 
-async function resumeAgent(sessionId, approved, onEvent) {
+async function resumeAgent(sessionId, approved) {
   const session = activeSessions.get(sessionId);
   if (!session) {
     throw buildFriendlyAgentError('Plan review session expired. Please generate again.');
   }
 
-  const responsePromise = waitForSession(session, onEvent);
+  const responsePromise = waitForSession(session);
   session.child.stdin.write(`${JSON.stringify({ action: 'resume', approved })}\n`);
   return responsePromise;
 }

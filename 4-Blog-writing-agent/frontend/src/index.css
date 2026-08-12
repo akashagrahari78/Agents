@@ -775,6 +775,26 @@ a { text-decoration: none; color: inherit; }
   box-shadow: var(--shadow-sm);
 }
 
+.generation-spinner-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.generation-spinner {
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 3px solid rgba(20, 184, 166, 0.18);
+  border-top-color: var(--color-accent-primary);
+  animation: generation-spin 0.8s linear infinite;
+}
+
+@keyframes generation-spin {
+  to { transform: rotate(360deg); }
+}
+
 .markdown-editor {
   width: 100%;
   min-height: 600px;
